@@ -431,11 +431,9 @@ const RACE_DISTANCE = 350;
 
     dangers.forEach(d => {
       if (d.active) {
-        const s = 1 + Math.sin(frameCount * 0.1) * 0.1;
-        d.mesh.scale.set(s, s, s);
+        d.mesh.scale.set(1, 1, 1);
         if (d.mesh.userData.innerMesh) {
-          d.mesh.userData.innerMesh.rotation.y = frameCount * 0.03;
-          d.mesh.userData.innerMesh.rotation.x = frameCount * 0.02;
+          d.mesh.userData.innerMesh.rotation.set(0, 0, 0);
         }
       }
     });
@@ -476,6 +474,9 @@ const RACE_DISTANCE = 350;
     sunLight.position.z = playerZ + 20;
     sunLight.target.position.z = playerZ;
     sunLight.target.updateMatrixWorld();
+    if (scene.userData.skyDome) {
+      scene.userData.skyDome.position.z = playerZ;
+    }
   }
 
   function gameLoop() {

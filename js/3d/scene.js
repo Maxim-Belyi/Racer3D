@@ -19,11 +19,21 @@ export function createScene(container) {
   scene.background = new THREE.Color(0x87CEEB); // Sky blue fallback
   scene.fog = new THREE.Fog(0xbce0fd, 100, 250);
 
-  // Load panoramic skybox
+  // Load panoramic skybox using a Sky Dome sphere
   const textureLoader = new THREE.TextureLoader();
   textureLoader.load('textures/skybox/skybox-day.png', (texture) => {
-    texture.mapping = THREE.EquirectangularReflectionMapping;
-    scene.background = texture;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    const skyGeo = new THREE.SphereGeometry(600, 32, 16);
+    const skyMat = new THREE.MeshBasicMaterial({
+      map: texture,
+      side: THREE.BackSide,
+      fog: false,
+      depthWrite: false,
+    });
+    const skyDome = new THREE.Mesh(skyGeo, skyMat);
+    skyDome.renderOrder = -1000;
+    scene.add(skyDome);
+    scene.userData.skyDome = skyDome;
   });
 
   // Lighting

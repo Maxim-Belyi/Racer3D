@@ -329,59 +329,68 @@ export function createSideProp(index) {
 
 // ── Coin ────────────────────────────────────────────────────────────────────
 
+const brightGoldMaterial = new THREE.MeshStandardMaterial({
+  color: 0xffea00, // Bright arcade cartoon gold
+  emissive: 0xffa700,
+  emissiveIntensity: 0.45,
+  roughness: 0.2,
+  metalness: 0.2,
+});
+
 export function createCoin() {
   const group = new THREE.Group();
   group.userData.type = 'coin';
 
   // Main disc fallback
-  const geo = new THREE.CylinderGeometry(0.5, 0.5, 0.12, 16);
-  const mesh = new THREE.Mesh(geo, MAT.coinGold);
+  const geo = new THREE.CylinderGeometry(0.4, 0.4, 0.1, 16);
+  const mesh = new THREE.Mesh(geo, brightGoldMaterial);
   mesh.castShadow = true;
   group.add(mesh);
 
   group.userData.fallbackMesh = mesh;
   group.userData.innerMesh = mesh;
 
-  loadAndApplyEnvModel(group, 'models/items/coin.glb', 1.2);
+  loadAndApplyEnvModel(group, 'models/items/coin.glb', 0.8, brightGoldMaterial);
 
   return group;
 }
 
 // ── Boost Arrow ─────────────────────────────────────────────────────────────
 
+const arrowMaterial = new THREE.MeshStandardMaterial({
+  color: 0x00f0ff,
+  emissive: 0x00a0ff,
+  emissiveIntensity: 0.7,
+  metalness: 0.4,
+  roughness: 0.2,
+});
+
 export function createBoostArrow() {
   const group = new THREE.Group();
   group.userData.type = 'boost';
 
   // Arrow body fallback
-  const coneGeo = new THREE.ConeGeometry(0.4, 1.2, 4);
-  const cone = new THREE.Mesh(coneGeo, MAT.boostGreen);
-  cone.position.y = 0.8;
+  const coneGeo = new THREE.ConeGeometry(0.25, 0.5, 4);
+  const cone = new THREE.Mesh(coneGeo, arrowMaterial);
+  cone.position.y = 0.3;
   cone.castShadow = true;
   group.add(cone);
 
   group.userData.fallbackMesh = cone;
 
-  loadAndApplyEnvModel(group, 'models/items/arrow.glb', 1.4);
+  loadAndApplyEnvModel(group, 'models/items/arrow.glb', 0.5, arrowMaterial);
 
   return group;
 }
 
-// ── Danger (Traffic Cone) ───────────────────────────────────────────────────
-
-const coneMaterial = new THREE.MeshStandardMaterial({
-  color: 0xff8800, // Bright vibrant traffic orange-yellow
-  roughness: 0.3,
-  metalness: 0.1,
-});
+// ── Danger (Traffic Cone GLB) ───────────────────────────────────────────────
 
 export function createDanger() {
   const group = new THREE.Group();
   group.userData.type = 'danger';
 
-  // Cone fallback
   const coneGeo = new THREE.ConeGeometry(0.5, 1.2, 8);
-  const fallbackMesh = new THREE.Mesh(coneGeo, coneMaterial);
+  const fallbackMesh = new THREE.Mesh(coneGeo, MAT.dangerRed);
   fallbackMesh.position.y = 0.6;
   fallbackMesh.castShadow = true;
   group.add(fallbackMesh);
@@ -389,7 +398,7 @@ export function createDanger() {
   group.userData.fallbackMesh = fallbackMesh;
   group.userData.innerMesh = fallbackMesh;
 
-  loadAndApplyEnvModel(group, 'models/env/cone.glb', 1.4, coneMaterial);
+  loadAndApplyEnvModel(group, 'models/env/cone.glb', 1.4);
 
   return group;
 }
@@ -398,27 +407,20 @@ export function createDanger() {
 
 export function createMagnet() {
   const group = new THREE.Group();
+  group.userData.type = 'magnet';
 
-  // U-shape using torus
   const torusGeo = new THREE.TorusGeometry(0.4, 0.12, 8, 12, Math.PI);
-  const torus = new THREE.Mesh(torusGeo, MAT.magnetGrey);
+  const torus = new THREE.Mesh(torusGeo, MAT.magnetRed);
   torus.position.y = 0.6;
   torus.rotation.x = Math.PI / 2;
   torus.castShadow = true;
   group.add(torus);
 
-  // Left pole (red)
-  const poleGeo = new THREE.BoxGeometry(0.2, 0.4, 0.2);
-  const poleL = new THREE.Mesh(poleGeo, MAT.magnetRed);
-  poleL.position.set(-0.4, 0.4, 0);
-  group.add(poleL);
+  group.userData.fallbackMesh = torus;
+  group.userData.innerMesh = torus;
 
-  // Right pole (blue)
-  const poleR = new THREE.Mesh(poleGeo, MAT.magnetBlue);
-  poleR.position.set(0.4, 0.4, 0);
-  group.add(poleR);
+  loadAndApplyEnvModel(group, 'models/items/magnet.glb', 1.2);
 
-  group.userData.type = 'magnet';
   return group;
 }
 

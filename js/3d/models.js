@@ -428,6 +428,8 @@ export function createMagnet() {
   return group;
 }
 
+// ── Stones Obstacle (replaces old crack) ─────────────────────────────────────
+
 export function createCrack() {
   const group = new THREE.Group();
   group.userData.type = 'crack';

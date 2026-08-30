@@ -29,7 +29,7 @@ const DANGER_BASE   = 1;
 const CRACK_BASE    = 4;
 const ARROW_COUNT   = 2;
 
-const RACE_DISTANCE = 350;  
+const RACE_DISTANCE = 1000;  
 
 
 (async function () {
@@ -83,18 +83,17 @@ const RACE_DISTANCE = 350;
       this.mesh = mesh;
       this.index = index;
       this.x = 0;
-      this.relZ = 0; // Z distance relative to player (negative = ahead, positive = behind)
       this.vx = 0;
-      this.vz = 0;
+      this.travelDist = 0;
 
-      // Unique human driver personality:
-      // Bot 0: Speeder (-0.015 relative Z speed, overtakes player!)
-      // Bot 1: Steady Cruiser (+0.009 relative Z speed, slightly behind)
-      const baseSpeeds = [-0.015, 0.009, -0.010, 0.014];
-      this.baseVz = baseSpeeds[index % baseSpeeds.length];
+      // Unique independent bot speeds (units/frame) - 100% independent of player!
+      // Bot 0: Fast racer (base speed 0.160)
+      // Bot 1: Cruiser (base speed 0.142)
+      const speeds = [0.160, 0.142, 0.155, 0.138];
+      this.baseSpeed = speeds[index % speeds.length];
+      this.currentSpeed = this.baseSpeed;
 
       this.stunFrames = 0;
-      this.knockbackFrames = 0;
       this.boosting = false;
       this.boostTimer = null;
       this.targetX = index % 2 === 0 ? -1.8 : 1.8;
@@ -103,47 +102,33 @@ const RACE_DISTANCE = 350;
       this.length = CAR_LENGTH;
     }
 
-    place(x, relZ) {
+    place(x, startDist) {
       this.x = this._clamp(x);
-      this.relZ = relZ;
+      this.travelDist = startDist; // 0 at race start
       this.vx = 0;
-      this.vz = this.baseVz;
       this.targetX = this.x;
-      this._sync(0);
+      this._sync();
     }
 
-    update(playerZ, dangers, coins, arrows, cracks) {
+    update(dangers, coins, arrows, cracks) {
       const FRICTION = 0.88;
       const STEER_FORCE = 0.025;
       const MAX_VX = 0.18;
 
-      // Determine Z velocity relative to player
-      let targetVz = this.baseVz;
+      // Calculate independent bot speed
+      let targetSpeed = this.baseSpeed;
       if (this.stunFrames > 0) {
         this.stunFrames--;
-        targetVz = 0.05; // Slowed down relative to player (falls back)
+        targetSpeed = this.baseSpeed * 0.2; // Stunned by obstacle / cone (slow down to 20%)
         this.mesh.rotation.z = Math.sin(this.stunFrames * 0.6) * 0.2;
       } else if (this.boosting) {
-        targetVz = -0.045; // Turbo boost relative to player (rockets ahead!)
-      } else {
-        // Human racing & catch-up chase logic (no magic teleportation!)
-        if (this.relZ > 2) {
-          // Bot is behind player -> CHASE! Speed up to catch up and overtake!
-          const chaseForce = Math.min(0.028, (this.relZ / 35) * 0.015);
-          targetVz = -0.012 - chaseForce;
-        } else if (this.relZ < -30) {
-          // Bot is far ahead of player -> ease off slightly to let player catch up
-          targetVz = 0.005;
-        } else {
-          // Fighting side-by-side with player
-          targetVz = this.baseVz;
-        }
+        targetSpeed = this.baseSpeed * 1.55; // Turbo boost arrow!
       }
 
-      this.vz += (targetVz - this.vz) * 0.08;
-      this.relZ += this.vz;
+      this.currentSpeed += (targetSpeed - this.currentSpeed) * 0.1;
+      this.travelDist += this.currentSpeed; // Move bot forward along track!
 
-      const currentAbsZ = playerZ + this.relZ;
+      const botZ = -this.travelDist; // 3D world position along -Z
 
       // Human-like AI decision tree (steering)
       if (this.stunFrames <= 0) {
@@ -155,7 +140,7 @@ const RACE_DISTANCE = 350;
           for (const d of dangers) {
             if (!d.active) continue;
             const dx = d.mesh.position.x - this.x;
-            const dz = d.mesh.position.z - currentAbsZ;
+            const dz = d.mesh.position.z - botZ;
             // Danger cone directly ahead within 22 units
             if (Math.abs(dx) < 1.8 && dz < 0 && dz > -22) {
               dangerAhead = true;
@@ -166,12 +151,12 @@ const RACE_DISTANCE = 350;
           }
         }
 
-        // Avoid cracks
+        // Avoid cracks / stones
         if (!dangerAhead && cracks) {
           for (const c of cracks) {
             if (!c.active) continue;
             const dx = c.mesh.position.x - this.x;
-            const dz = c.mesh.position.z - currentAbsZ;
+            const dz = c.mesh.position.z - botZ;
             if (Math.abs(dx) < 1.5 && dz < 0 && dz > -18) {
               dangerAhead = true;
               const evadeDir = dx > 0 ? -1 : 1;
@@ -181,16 +166,15 @@ const RACE_DISTANCE = 350;
           }
         }
 
-        // 2. ITEM HUNTING (High Priority - if no danger ahead)
+        // 2. ITEM HUNTING (High Priority - seek boost arrows & coins)
         if (!dangerAhead) {
           let itemFound = false;
 
-          // Seek Boost Arrows (look ahead 35 units)
           if (arrows) {
             for (const a of arrows) {
               if (!a.active) continue;
               const dx = a.mesh.position.x - this.x;
-              const dz = a.mesh.position.z - currentAbsZ;
+              const dz = a.mesh.position.z - botZ;
               if (Math.abs(dx) < 3.5 && dz < 0 && dz > -35) {
                 desiredX = a.mesh.position.x;
                 itemFound = true;
@@ -199,12 +183,11 @@ const RACE_DISTANCE = 350;
             }
           }
 
-          // Seek Coins (look ahead 28 units)
           if (!itemFound && coins) {
             for (const c of coins) {
               if (!c.active) continue;
               const dx = c.mesh.position.x - this.x;
-              const dz = c.mesh.position.z - currentAbsZ;
+              const dz = c.mesh.position.z - botZ;
               if (Math.abs(dx) < 3.0 && dz < 0 && dz > -28) {
                 desiredX = c.mesh.position.x;
                 itemFound = true;
@@ -213,7 +196,7 @@ const RACE_DISTANCE = 350;
             }
           }
 
-          // 3. WANDERING / PREFERRED LANE (Low Priority)
+          // 3. WANDERING (Low Priority)
           if (!itemFound) {
             if (--this.retargetTimer <= 0) {
               this.retargetTimer = 80 + Math.random() * 120;
@@ -223,22 +206,21 @@ const RACE_DISTANCE = 350;
           }
         }
 
-        // Apply smooth steering towards desiredX
+        // Apply smooth steering
         const dx = desiredX - this.x;
         this.vx += dx * STEER_FORCE;
         this.vx = Math.max(-MAX_VX, Math.min(MAX_VX, this.vx * FRICTION));
         this.x = this._clamp(this.x + this.vx);
 
-        // Body tilt when steering
         this.mesh.rotation.z = -this.vx * 2.5;
       }
 
-      this._sync(playerZ);
+      this._sync();
     }
 
     crash(dangerX) {
       if (this.stunFrames > 0) return;
-      this.stunFrames = 90;
+      this.stunFrames = 80;
       const dir = this.x < dangerX ? -1 : 1;
       this.vx = dir * 0.35;
       this.targetX = this._clamp(this.x + dir * 2.5);
@@ -269,8 +251,8 @@ const RACE_DISTANCE = 350;
       return Math.max(-PLAYABLE_HALF + 0.5, Math.min(PLAYABLE_HALF - 0.5, x));
     }
 
-    _sync(playerZ) {
-      this.mesh.position.set(this.x, 0, playerZ + this.relZ);
+    _sync() {
+      this.mesh.position.set(this.x, 0, -this.travelDist);
     }
   }
 
@@ -647,7 +629,7 @@ const RACE_DISTANCE = 350;
 
     // ── AI Cars ─────────────────────────────────────────────────────────
     aiCars.forEach(ai => {
-      ai.update(playerCar.position.z, dangers, coins, arrows, cracks);
+      ai.update(dangers, coins, arrows, cracks);
 
       // AI-player collision (push apart)
       if (ai.overlaps(playerCar.position, CAR_HALF_W, CAR_LENGTH / 2)) {
@@ -693,14 +675,21 @@ const RACE_DISTANCE = 350;
     if (aiCars.length >= 2) resolveAiAi(aiCars[0], aiCars[1]);
 
     // ── Finish Line ─────────────────────────────────────────────────────
-    const finishZ = playerCar.position.z - (RACE_DISTANCE - playerTravelDist) * 0.02;
-    finishLineMesh.position.z = playerCar.position.z - RACE_DISTANCE * 0.02 + playerTravelDist * 0.02;
+    finishLineMesh.position.z = playerCar.position.z - (RACE_DISTANCE - playerTravelDist) * 0.02;
 
-    if (playerTravelDist > RACE_DISTANCE * 0.3) {
+    // Finish line appears at 990 meters (10m before 1000m finish)
+    const leadingDist = Math.max(
+      playerTravelDist,
+      ...aiCars.map(ai => ai.travelDist)
+    );
+
+    if (leadingDist >= RACE_DISTANCE - 10) {
       finishLineMesh.visible = true;
+    } else {
+      finishLineMesh.visible = false;
     }
 
-    if (!finishReached && playerTravelDist >= RACE_DISTANCE) {
+    if (!finishReached && leadingDist >= RACE_DISTANCE) {
       finishReached = true;
     }
 
@@ -801,7 +790,10 @@ const RACE_DISTANCE = 350;
 
     const places = [
       { label: 'You', dist: playerTravelDist },
-      ...aiCars.map((ai, i) => ({ label: `Бот ${i + 1}`, dist: ai.travelDist })),
+      ...aiCars.map((ai, i) => ({
+        label: `Бот ${i + 1}`,
+        dist: ai.travelDist
+      })),
     ].sort((a, b) => b.dist - a.dist);
 
     if (places[0].label === 'You') {

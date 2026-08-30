@@ -410,9 +410,11 @@ const RACE_DISTANCE = 1000;
   }
 
   function recycleItem(item, playerZ, trackLength) {
-    if (!item.active) return;
     if (item.mesh.position.z > playerZ + 15) {
-      item.mesh.position.z = playerZ - trackLength;
+      const dist = (typeof trackLength === 'number' && !isNaN(trackLength) && trackLength > 0)
+        ? trackLength
+        : (70 + Math.random() * 50);
+      item.mesh.position.z = playerZ - dist;
       item.mesh.position.x = (Math.random() - 0.5) * (ROAD_WIDTH - 2);
       item.active = true;
       item.mesh.visible = true;
@@ -530,9 +532,9 @@ const RACE_DISTANCE = 1000;
       playerCar.position.y = 0;
     }
 
-    coins.forEach(c => {
+    coins.forEach((c, i) => {
       if (magnetActive && c.active) pullCoinToCar(c);
-      recycleItem(c, playerCar.position.z, c.speed);
+      recycleItem(c, playerCar.position.z, 60 + i * 15);
       if (c.active && playerOverlaps(c.mesh.position, 0.35, 0.35)) {
         collectCoin(c);
       }

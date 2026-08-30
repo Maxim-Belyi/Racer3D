@@ -1,10 +1,10 @@
 import * as THREE from 'three';
-import { createScene } from './3d/scene.js';
+import { createScene, setRandomSkybox } from './3d/scene.js';
 import { ChaseCamera } from './3d/camera.js';
 import { createRoad, ROAD_WIDTH, ROAD_HALF } from './3d/road.js';
 import {
   createCar, createCarFromGLTF, updateCarMesh, createTree, createSideProp, createCoin, createBoostArrow,
-  createDanger, createMagnet, createCrack, createCheckerLine,
+  createDanger, createMagnet, createCrack, createCheckerLine, createStartLine, createFinishLine,
   setCarColor, getCarMaterial
 } from './3d/models.js';
 
@@ -55,8 +55,8 @@ const RACE_DISTANCE = 1000;
   let magnetTimeout = null;
   let coinDoubleUsed = false;
 
-  let baseSpeed = 0.15;      
-  let playerMoveSpeed = 0.12;  
+  let baseSpeed = 0.19;      
+  let playerMoveSpeed = 0.15;  
   let playerBoostDelta = 0;
   let playerSlowDownFrames = 0;
   let finishReached = false;
@@ -86,10 +86,8 @@ const RACE_DISTANCE = 1000;
       this.vx = 0;
       this.travelDist = 0;
 
-      // Unique independent bot speeds (units/frame) - 100% independent of player!
-      // Bot 0: Fast racer (base speed 0.160)
-      // Bot 1: Cruiser (base speed 0.142)
-      const speeds = [0.160, 0.142, 0.155, 0.138];
+      // Unique independent bot speeds (units/frame) - increased by 25%
+      const speeds = [0.200, 0.178, 0.194, 0.172];
       this.baseSpeed = speeds[index % speeds.length];
       this.currentSpeed = this.baseSpeed;
 
@@ -322,12 +320,12 @@ const RACE_DISTANCE = 1000;
   magnetItem.active = false;
   magnetItem.mesh.visible = false;
 
-  const finishLineMesh = createCheckerLine(ROAD_WIDTH);
+  const finishLineMesh = createFinishLine(ROAD_WIDTH);
   finishLineMesh.position.set(0, 0, -9999);
   finishLineMesh.visible = false;
   scene.add(finishLineMesh);
 
-  const startLineMesh = createCheckerLine(ROAD_WIDTH);
+  const startLineMesh = createStartLine(ROAD_WIDTH);
   scene.add(startLineMesh);
 
   function spawnLevelObjects() {
@@ -718,6 +716,9 @@ const RACE_DISTANCE = 1000;
 
     // ── Camera & Render ─────────────────────────────────────────────────
     chaseCamera.update(playerCar.position);
+    if (scene.userData.skyDome) {
+      scene.userData.skyDome.position.copy(chaseCamera.camera.position);
+    }
     renderer.render(scene, chaseCamera.camera);
 
     animationId = requestAnimationFrame(gameLoop);
@@ -982,8 +983,11 @@ const RACE_DISTANCE = 1000;
     coinDoubleUsed = false;
     if (gameScoreValue) gameScoreValue.innerText = '0';
 
-    baseSpeed = 0.15 * playerCarClass.modifier;
-    playerMoveSpeed = 0.12 * playerCarClass.modifier;
+    baseSpeed = 0.1875 * playerCarClass.modifier;
+    playerMoveSpeed = 0.15 * playerCarClass.modifier;
+
+    // Pick a random skybox for each new race start!
+    setRandomSkybox(scene);
 
     // Speed upgrade
     const speedMult = 1 + (state.speedUpgradeLevel || 0) * 0.02;

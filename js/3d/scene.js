@@ -1,5 +1,32 @@
 import * as THREE from 'three';
 
+const SKYBOX_LIST = [
+  'models/skybox/skybox-day.png',
+  'models/skybox/skybox-morning.png',
+  'models/skybox/skybox-night.png',
+  'models/skybox/skybox-alien.png',
+  'models/skybox/skybox-space.png',
+];
+
+const skyboxCache = new Map();
+const textureLoader = new THREE.TextureLoader();
+
+export function setRandomSkybox(scene) {
+  const skyUrl = SKYBOX_LIST[Math.floor(Math.random() * SKYBOX_LIST.length)];
+
+  if (skyboxCache.has(skyUrl)) {
+    scene.background = skyboxCache.get(skyUrl);
+    return;
+  }
+
+  textureLoader.load(skyUrl, (texture) => {
+    texture.mapping = THREE.EquirectangularReflectionMapping;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    skyboxCache.set(skyUrl, texture);
+    scene.background = texture;
+  });
+}
+
 /**
  * Sets up the Three.js scene, renderer, lighting, and ground.
  */
@@ -16,25 +43,11 @@ export function createScene(container) {
 
   // Scene
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x87CEEB); // Sky blue fallback
-  scene.fog = new THREE.Fog(0xbce0fd, 100, 250);
+  scene.background = new THREE.Color(0x87CEEB); // Fallback color while loading
+  scene.fog = new THREE.Fog(0xbce0fd, 250, 750);
 
-  // Load panoramic skybox using a Sky Dome sphere
-  const textureLoader = new THREE.TextureLoader();
-  textureLoader.load('textures/skybox/skybox-day.png', (texture) => {
-    texture.colorSpace = THREE.SRGBColorSpace;
-    const skyGeo = new THREE.SphereGeometry(600, 32, 16);
-    const skyMat = new THREE.MeshBasicMaterial({
-      map: texture,
-      side: THREE.BackSide,
-      fog: false,
-      depthWrite: false,
-    });
-    const skyDome = new THREE.Mesh(skyGeo, skyMat);
-    skyDome.renderOrder = -1000;
-    scene.add(skyDome);
-    scene.userData.skyDome = skyDome;
-  });
+  // Load a random skybox on scene initialization
+  setRandomSkybox(scene);
 
   // Lighting
   const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);

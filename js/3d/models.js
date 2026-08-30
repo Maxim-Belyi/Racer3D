@@ -413,17 +413,43 @@ export function createMagnet() {
   const group = new THREE.Group();
   group.userData.type = 'magnet';
 
-  const torusGeo = new THREE.TorusGeometry(0.4, 0.12, 8, 12, Math.PI);
-  const torus = new THREE.Mesh(torusGeo, MAT.magnetRed);
-  torus.position.y = 0.6;
-  torus.rotation.x = Math.PI / 2;
-  torus.castShadow = true;
-  group.add(torus);
+  const magnetGroup = new THREE.Group();
 
-  group.userData.fallbackMesh = torus;
-  group.userData.innerMesh = torus;
+  // Horseshoe U-arch (Red)
+  const archGeo = new THREE.TorusGeometry(0.35, 0.1, 16, 24, Math.PI);
+  const redMat = new THREE.MeshStandardMaterial({
+    color: 0xee2222,
+    metalness: 0.5,
+    roughness: 0.3,
+    emissive: 0x550000,
+    emissiveIntensity: 0.2,
+  });
+  const arch = new THREE.Mesh(archGeo, redMat);
+  arch.rotation.x = Math.PI / 2;
+  arch.castShadow = true;
+  magnetGroup.add(arch);
 
-  loadAndApplyEnvModel(group, 'models/items/magnet.glb', 0.5);
+  // Silver tips at the ends of the U-magnet
+  const silverMat = new THREE.MeshStandardMaterial({ color: 0xdddddd, metalness: 0.9, roughness: 0.2 });
+  const tipGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.18, 16);
+
+  const leftTip = new THREE.Mesh(tipGeo, silverMat);
+  leftTip.position.set(-0.35, 0, -0.09);
+  leftTip.rotation.x = Math.PI / 2;
+  leftTip.castShadow = true;
+  magnetGroup.add(leftTip);
+
+  const rightTip = new THREE.Mesh(tipGeo, silverMat);
+  rightTip.position.set(0.35, 0, -0.09);
+  rightTip.rotation.x = Math.PI / 2;
+  rightTip.castShadow = true;
+  magnetGroup.add(rightTip);
+
+  magnetGroup.position.y = 0.5;
+  group.add(magnetGroup);
+
+  group.userData.fallbackMesh = magnetGroup;
+  group.userData.innerMesh = magnetGroup;
 
   return group;
 }
@@ -448,27 +474,48 @@ export function createCrack() {
   return group;
 }
 
-export function createCheckerLine(width) {
+// ── Start & Finish Lines (PNG Textures) ──────────────────────────────────────
+
+const textureLoader = new THREE.TextureLoader();
+
+const startTexture = textureLoader.load('images/decorations/start.png');
+startTexture.colorSpace = THREE.SRGBColorSpace;
+const startMaterial = new THREE.MeshBasicMaterial({
+  map: startTexture,
+  transparent: true,
+  side: THREE.DoubleSide
+});
+
+const finishTexture = textureLoader.load('images/decorations/finish.png');
+finishTexture.colorSpace = THREE.SRGBColorSpace;
+const finishMaterial = new THREE.MeshBasicMaterial({
+  map: finishTexture,
+  transparent: true,
+  side: THREE.DoubleSide
+});
+
+export function createStartLine(width = 8) {
   const group = new THREE.Group();
-  const squareSize = 0.6;
-  const cols = Math.ceil(width / squareSize);
-  const rows = 2;
-
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      const isWhite = (r + c) % 2 === 0;
-      const geo = new THREE.PlaneGeometry(squareSize, squareSize);
-      const mesh = new THREE.Mesh(geo, isWhite ? MAT.checkerW : MAT.checkerB);
-      mesh.rotation.x = -Math.PI / 2;
-      mesh.position.set(
-        -width / 2 + c * squareSize + squareSize / 2,
-        0.02,
-        r * squareSize - squareSize / 2
-      );
-      group.add(mesh);
-    }
-  }
-
-  group.userData.type = 'line';
+  const geo = new THREE.PlaneGeometry(width, 2.5);
+  const mesh = new THREE.Mesh(geo, startMaterial);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.y = 0.02;
+  group.add(mesh);
+  group.userData.type = 'startLine';
   return group;
+}
+
+export function createFinishLine(width = 8) {
+  const group = new THREE.Group();
+  const geo = new THREE.PlaneGeometry(width, 2.5);
+  const mesh = new THREE.Mesh(geo, finishMaterial);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.y = 0.02;
+  group.add(mesh);
+  group.userData.type = 'finishLine';
+  return group;
+}
+
+export function createCheckerLine(width) {
+  return createFinishLine(width);
 }

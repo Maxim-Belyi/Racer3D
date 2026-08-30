@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Car game</title>
+    <style>
+        #game-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+        #game-canvas canvas {
+            display: block;
+            width: 100% !important;
+            height: 100% !important;
+        }
+        /* All HUD and UI overlays above the canvas */
+        .container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw !important;
+            height: 100vh !important;
+            max-width: 100vw !important;
+            max-height: 100vh !important;
+            margin: 0 !important;
+            z-index: 10;
+            pointer-events: none;
+        }
+        .container > * {
+            pointer-events: auto;
+        }
+        .game-score,
+        .game-level,
+        .button-wrapper,
+        .button-controls-wrapper__left,
+        .button-controls-wrapper__right {
+            z-index: 20;
+            position: fixed;
+        }
+        .backdrop {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 30;
+        }
+        .backdrop[style*="display: none"] {
+            display: none !important;
+        }
+        .shop-modal {
+            z-index: 60 !important;
+        }
+        .countdown {
+            z-index: 40;
+            position: fixed;
+        }
+        .pop-label {
+            z-index: 50;
+        }
+    </style>
+  <script type="module" crossorigin src="./assets/index-Bm482Iu4.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-B_voKW-g.css">
+</head>
+
+<body>
+    <!-- Three.js canvas container -->
+    <div id="game-canvas"></div>
+
+    <!-- UI Overlays (all kept as HTML) -->
+    <div class="container">
+            <div class="backdrop shop-modal" data-js-shop-modal style="display: none !important;">
+                <div class="shop-modal__wrapper">
+                    <div class="shop-modal__header">
+                        <h2 class="shop-modal__title">Магазин</h2>
+                        <div class="shop-modal__tabs">
+                            <button class="shop-modal__tab active" data-js-shop-tab="garage">Гараж</button>
+                            <button class="shop-modal__tab" data-js-shop-tab="upgrades">Улучшения</button>
+                        </div>
+                        <div class="shop-modal__coins">🪙 <span data-js-shop-coins>0</span></div>
+                        <button class="shop-modal__close" type="button" data-js-close-shop>&times;</button>
+                    </div>
+                    <div class="shop-modal__content" data-js-shop-content>
+                    </div>
+                </div>
+            </div>
+
+        <!-- Welcome screen -->
+        <div class="backdrop welcome-screen" data-js-welcome-screen>
+            <div class="welcome-screen__wrapper">
+                <h1 class="welcome-screen__title">Racer JS</h1>
+                <div class="welcome-screen__mechanics">
+                    <div class="mechanic">
+                        <span style="font-size: 2rem;">🪙</span>
+                        <span>Собирай монеты</span>
+                    </div>
+                    <div class="mechanic">
+                        <span style="font-size: 2rem;">🚀</span>
+                        <span>Ускорение (Boost)</span>
+                    </div>
+                    <div class="mechanic">
+                        <span style="font-size: 2rem;">⚠️</span>
+                        <span>Избегай аварий</span>
+                    </div>
+                </div>
+                <div class="welcome-screen__actions">
+                    <button class="button welcome-screen__button" type="button" data-js-start-game>Начать игру </button>
+                    <button class="button welcome-screen__button" style="background: #e67e22;" type="button" data-js-open-shop>🛒 Магазин</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- End game modal (unused in 3D but kept for compatibility) -->
+        <div class="backdrop end-game" data-js-end-game-backdrop style="display: none;">
+            <div class="end-game__wrapper">
+                <div class="end-game__text">
+                    <p>Total score: <span class="end-game__score" data-js-end-game-score>0</span></p>
+                </div>
+                <button class="button end-game__button" type="button" data-js-end-game-button>Restart</button>
+                <button class="button end-game__button" style="background: #e67e22;" type="button" data-js-open-shop>🛒 Shop</button>
+            </div>
+        </div>
+
+        <div class="countdown" data-js-countdown></div>
+
+        <!-- Crash modal -->
+        <div class="race-result" data-js-crash-modal>
+            <div class="race-result__inner">
+                <h2 class="race-result__title" style="color: #e74c3c;">💥 Авария!</h2>
+                <p style="text-align: center; margin-bottom: 5px; font-size: 1.2rem; color: rgba(255, 255, 255, 0.8);">Вы врезались в препятствие!</p>
+                <div style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
+                    <button class="race-result__btn race-result__btn--green" type="button" data-js-crash-revive>
+                        ❤️ Возродиться (Осталось: <span data-js-crash-lives>0</span>)
+                    </button>
+                    <button class="race-result__btn race-result__btn--ad" type="button" data-js-crash-revive-ad>
+                        <span class="ad-btn__icon">▶</span>
+                        <span>Возродиться</span>
+                    </button>
+                    <div style="display: flex; gap: 12px; width: 100%;">
+                        <button class="race-result__btn race-result__btn--red" type="button" data-js-crash-restart style="flex: 1;">Начать заново</button>
+                        <button class="race-result__btn race-result__btn--orange" type="button" data-js-open-shop style="flex: 1;">🛒 Магазин</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Race result modal -->
+        <div class="race-result" data-js-race-result>
+            <div class="race-result__inner">
+                <h2 class="race-result__title">🏁 Финиш!</h2>
+                <ul class="race-result__list" data-js-result-list></ul>
+                <div class="race-result__coins" data-js-result-coins>
+                    <span class="race-result__coins-label">Собрано</span>
+                    <span class="race-result__coins-icon">🪙</span>
+                    <span class="race-result__coins-value" data-js-result-coins-value>0</span>
+                </div>
+                <button class="race-result__btn race-result__btn--ad race-result__btn--x2" type="button" data-js-double-coins>
+                    <span class="ad-btn__icon">▶</span>
+                    <span>x2 монет</span>
+                </button>
+                <div style="display: flex; gap: 12px; width: 100%;">
+                    <button class="race-result__btn" type="button" data-js-restart>Сыграть снова</button>
+                    <button class="race-result__btn race-result__btn--orange" type="button" data-js-open-shop>🛒 Магазин</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- HUD -->
+        <div class="game-score" data-js-game-score-wrapper>
+            <p class="game-score__title">Ваш счёт:</p>
+            <p class="game-score__value" data-js-game-score-value>0</p>
+        </div>
+
+        <div class="game-level" data-js-game-level-wrapper>
+            <p class="game-level__title">Уровень:</p>
+            <p class="game-level__value" data-js-game-level-value>1</p>
+        </div>
+
+        <div class="button-wrapper">
+            <button class="button__sound button" data-js-sound-button>
+                <img class="button__sound-on" src="./images/sound-on.png"></img>
+                <img class="button__sound-off visually-hidden" src="./images/sound-off.png"></img>
+            </button>
+        </div>
+
+        <!-- Touch controls -->
+        <div class="button-controls-wrapper__left">
+            <button class="button-controls__left button" data-js-left-control>
+                <img src="./images/arrow-button.avif" alt="" width="48" height="48">
+            </button>
+
+            <button class="button-controls__down button" data-js-down-control>
+                <img src="./images/arrow-button.avif" alt="" width="48" height="48">
+            </button>
+        </div>
+
+        <div class="button-controls-wrapper__right">
+            <button class="button-controls__top button" data-js-top-control>
+                <img src="./images/arrow-button.avif" alt=""  width="48" height="48">
+            </button>
+
+            <button class="button-controls__right button" data-js-right-control>
+                <img src="./images/arrow-button.avif" alt=""  width="48" height="48">
+            </button>
+        </div>
+
+    </div>
+</body>
+
+</html>

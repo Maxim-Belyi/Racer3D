@@ -305,20 +305,20 @@ export function createTree(variationIndex) {
 // ── Roadside Props (Survival Kit & Platformer items) ─────────────────────────
 
 const sidePropModels = [
-  { url: 'models/env/barrel.glb', height: 1.2 },
-  { url: 'models/env/box.glb', height: 1.0 },
-  { url: 'models/env/resource-planks.glb', height: 0.8 },
-  { url: 'models/env/rock-sand-a.glb', height: 1.5 },
-  { url: 'models/env/rock-sand-b.glb', height: 1.8 },
-  { url: 'models/env/rock-sand-c.glb', height: 1.3 },
-  { url: 'models/env/signpost.glb', height: 2.2 },
-  { url: 'models/env/signpost-single.glb', height: 2.0 },
-  { url: 'models/env/tent-canvas.glb', height: 1.6 },
-  { url: 'models/env/tree-log-small.glb', height: 0.8 },
-  { url: 'models/env/flowers.glb', height: 0.9 },
-  { url: 'models/env/flowers-tall.glb', height: 1.4 },
-  { url: 'models/env/mushrooms.glb', height: 0.8 },
-  { url: 'models/env/rocks.glb', height: 0.6 },
+  { url: 'models/survival/barrel.glb', height: 1.2 },
+  { url: 'models/survival/box.glb', height: 1.0 },
+  { url: 'models/survival/resource-planks.glb', height: 0.8 },
+  { url: 'models/survival/rock-sand-a.glb', height: 1.5 },
+  { url: 'models/survival/rock-sand-b.glb', height: 1.8 },
+  { url: 'models/survival/rock-sand-c.glb', height: 1.3 },
+  { url: 'models/survival/signpost.glb', height: 2.2 },
+  { url: 'models/survival/signpost-single.glb', height: 2.0 },
+  { url: 'models/survival/tent-canvas.glb', height: 1.6 },
+  { url: 'models/survival/tree-log-small.glb', height: 0.8 },
+  { url: 'models/platformer/flowers.glb', height: 0.9 },
+  { url: 'models/platformer/flowers-tall.glb', height: 1.4 },
+  { url: 'models/platformer/mushrooms.glb', height: 0.8 },
+  { url: 'models/platformer/rocks.glb', height: 0.6 },
 ];
 
 export function createSideProp(index) {
@@ -443,7 +443,7 @@ export function createCrack() {
   group.userData.fallbackMesh = mesh;
   group.userData.innerMesh = mesh;
 
-  loadAndApplyEnvModel(group, 'models/env/stones.glb', 0.1);
+  loadAndApplyEnvModel(group, 'models/platformer/stones.glb', 0.1);
 
   return group;
 }

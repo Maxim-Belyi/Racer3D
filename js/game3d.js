@@ -83,114 +83,177 @@ const RACE_DISTANCE = 350;
       this.mesh = mesh;
       this.index = index;
       this.x = 0;
-      this.z = 0;
+      this.relZ = 0; // Z distance relative to player (negative = ahead, positive = behind)
       this.vx = 0;
-      this.targetX = 0;
-      this.retargetTimer = 0;
-      this.travelDist = 0;
-      this.modifier = 1.0;
-      this._targetModifier = 1.0;
+      this.vz = 0;
+
+      // Unique human driver personality:
+      // Bot 0: Speeder (-0.015 relative Z speed, overtakes player!)
+      // Bot 1: Steady Cruiser (+0.009 relative Z speed, slightly behind)
+      const baseSpeeds = [-0.015, 0.009, -0.010, 0.014];
+      this.baseVz = baseSpeeds[index % baseSpeeds.length];
+
       this.stunFrames = 0;
       this.knockbackFrames = 0;
       this.boosting = false;
+      this.boostTimer = null;
+      this.targetX = index % 2 === 0 ? -1.8 : 1.8;
+      this.retargetTimer = 0;
       this.width = CAR_WIDTH;
       this.length = CAR_LENGTH;
     }
 
-    place(x, playerZ, syncDist) {
+    place(x, relZ) {
       this.x = this._clamp(x);
-      this.z = playerZ;
+      this.relZ = relZ;
+      this.vx = 0;
+      this.vz = this.baseVz;
       this.targetX = this.x;
-      this.travelDist = syncDist;
-      this._sync();
+      this._sync(0);
     }
 
-    update(playerZ, playerDist, speed, dangers, coins, arrows, cracks) {
-      const FRICTION = 0.85;
-      const STEER_FORCE = 0.018;
-      const MAX_VX = 0.15;
-      const OVERTAKE_DIST = 3;
-      const SPEED_LERP = 0.02;
+    update(playerZ, dangers, coins, arrows, cracks) {
+      const FRICTION = 0.88;
+      const STEER_FORCE = 0.025;
+      const MAX_VX = 0.18;
 
-      if (this.knockbackFrames > 0) {
-        this.knockbackFrames--;
-        this.travelDist -= speed * 0.4;
-        this.z = playerZ + (playerDist - this.travelDist) * 0.02;
-        this.vx *= 0.92;
-        this.x = this._clamp(this.x + this.vx);
-        this._sync();
-        return;
-      }
-
-      let speedFactor;
+      // Determine Z velocity relative to player
+      let targetVz = this.baseVz;
       if (this.stunFrames > 0) {
         this.stunFrames--;
-        speedFactor = 0.12;
+        targetVz = 0.05; // Slowed down relative to player (falls back)
+        this.mesh.rotation.z = Math.sin(this.stunFrames * 0.6) * 0.2;
       } else if (this.boosting) {
-        speedFactor = 1.35;
+        targetVz = -0.045; // Turbo boost relative to player (rockets ahead!)
       } else {
-        this.modifier += (this._targetModifier - this.modifier) * SPEED_LERP;
-        speedFactor = this.modifier;
-      }
-
-      this.travelDist += speed * speedFactor;
-      this.z = playerZ + (playerDist - this.travelDist) * 0.02;
-
-      if (this.stunFrames <= 0) {
-        if (--this.retargetTimer <= 0) {
-          this.retargetTimer = 90 + Math.random() * 130;
-          this.targetX = -PLAYABLE_HALF + Math.random() * PLAYABLE_HALF * 2;
-        }
-
-        for (const d of dangers) {
-          if (d.active) this._avoid(d.mesh.position, 0.8);
-        }
-        for (const c of cracks) {
-          if (c.active) this._avoid(c.mesh.position, 0.6);
-        }
-
-        let steered = this._steerToItem(arrows, 4, 15, 0.003);
-        if (!steered) this._steerToItem(coins, 3, 10, 0.002);
-
-        const dx = this.targetX - this.x;
-        this.vx += dx * STEER_FORCE;
-
-        const distBehind = (playerDist - this.travelDist) * 0.02;
-        if (distBehind > OVERTAKE_DIST) {
-          const ratio = Math.min(1, (distBehind - OVERTAKE_DIST) / 10);
-          this._targetModifier = 1.0 + ratio * 0.12;
+        // Human racing & catch-up chase logic (no magic teleportation!)
+        if (this.relZ > 2) {
+          // Bot is behind player -> CHASE! Speed up to catch up and overtake!
+          const chaseForce = Math.min(0.028, (this.relZ / 35) * 0.015);
+          targetVz = -0.012 - chaseForce;
+        } else if (this.relZ < -30) {
+          // Bot is far ahead of player -> ease off slightly to let player catch up
+          targetVz = 0.005;
         } else {
-          this._targetModifier = 1.0;
+          // Fighting side-by-side with player
+          targetVz = this.baseVz;
         }
       }
 
-      this.vx = Math.max(-MAX_VX, Math.min(MAX_VX, this.vx * FRICTION));
-      this.x = this._clamp(this.x + this.vx);
+      this.vz += (targetVz - this.vz) * 0.08;
+      this.relZ += this.vz;
 
-      this.mesh.rotation.z = -this.vx * 3;
+      const currentAbsZ = playerZ + this.relZ;
 
-      this._sync();
+      // Human-like AI decision tree (steering)
+      if (this.stunFrames <= 0) {
+        let desiredX = this.targetX;
+
+        // 1. DANGER AVOIDANCE (Top Priority)
+        let dangerAhead = false;
+        if (dangers) {
+          for (const d of dangers) {
+            if (!d.active) continue;
+            const dx = d.mesh.position.x - this.x;
+            const dz = d.mesh.position.z - currentAbsZ;
+            // Danger cone directly ahead within 22 units
+            if (Math.abs(dx) < 1.8 && dz < 0 && dz > -22) {
+              dangerAhead = true;
+              const evadeDir = dx > 0 ? -1 : (dx < 0 ? 1 : (this.x > 0 ? -1 : 1));
+              desiredX = this._clamp(this.x + evadeDir * 2.5);
+              break;
+            }
+          }
+        }
+
+        // Avoid cracks
+        if (!dangerAhead && cracks) {
+          for (const c of cracks) {
+            if (!c.active) continue;
+            const dx = c.mesh.position.x - this.x;
+            const dz = c.mesh.position.z - currentAbsZ;
+            if (Math.abs(dx) < 1.5 && dz < 0 && dz > -18) {
+              dangerAhead = true;
+              const evadeDir = dx > 0 ? -1 : 1;
+              desiredX = this._clamp(this.x + evadeDir * 2.2);
+              break;
+            }
+          }
+        }
+
+        // 2. ITEM HUNTING (High Priority - if no danger ahead)
+        if (!dangerAhead) {
+          let itemFound = false;
+
+          // Seek Boost Arrows (look ahead 35 units)
+          if (arrows) {
+            for (const a of arrows) {
+              if (!a.active) continue;
+              const dx = a.mesh.position.x - this.x;
+              const dz = a.mesh.position.z - currentAbsZ;
+              if (Math.abs(dx) < 3.5 && dz < 0 && dz > -35) {
+                desiredX = a.mesh.position.x;
+                itemFound = true;
+                break;
+              }
+            }
+          }
+
+          // Seek Coins (look ahead 28 units)
+          if (!itemFound && coins) {
+            for (const c of coins) {
+              if (!c.active) continue;
+              const dx = c.mesh.position.x - this.x;
+              const dz = c.mesh.position.z - currentAbsZ;
+              if (Math.abs(dx) < 3.0 && dz < 0 && dz > -28) {
+                desiredX = c.mesh.position.x;
+                itemFound = true;
+                break;
+              }
+            }
+          }
+
+          // 3. WANDERING / PREFERRED LANE (Low Priority)
+          if (!itemFound) {
+            if (--this.retargetTimer <= 0) {
+              this.retargetTimer = 80 + Math.random() * 120;
+              this.targetX = (Math.random() - 0.5) * (PLAYABLE_HALF * 1.6);
+            }
+            desiredX = this.targetX;
+          }
+        }
+
+        // Apply smooth steering towards desiredX
+        const dx = desiredX - this.x;
+        this.vx += dx * STEER_FORCE;
+        this.vx = Math.max(-MAX_VX, Math.min(MAX_VX, this.vx * FRICTION));
+        this.x = this._clamp(this.x + this.vx);
+
+        // Body tilt when steering
+        this.mesh.rotation.z = -this.vx * 2.5;
+      }
+
+      this._sync(playerZ);
     }
 
     crash(dangerX) {
-      if (this.stunFrames > 0 || this.knockbackFrames > 0) return;
-      this.stunFrames = 100;
-      this.knockbackFrames = 15;
+      if (this.stunFrames > 0) return;
+      this.stunFrames = 90;
       const dir = this.x < dangerX ? -1 : 1;
-      this.vx = dir * 0.3;
-      this.targetX = this.x + dir * 3;
-      this.retargetTimer = 80;
+      this.vx = dir * 0.35;
+      this.targetX = this._clamp(this.x + dir * 2.5);
     }
 
     bump() {
       if (this.stunFrames > 0) return;
-      this.stunFrames = 60;
+      this.stunFrames = 50;
     }
 
     boost() {
       if (this.boosting) return;
       this.boosting = true;
-      setTimeout(() => { this.boosting = false; }, 2200);
+      clearTimeout(this.boostTimer);
+      this.boostTimer = setTimeout(() => { this.boosting = false; }, 2500);
     }
 
     push(force) { this.vx += force; }
@@ -198,47 +261,16 @@ const RACE_DISTANCE = 350;
     overlaps(pos, hw, hl) {
       return (
         Math.abs(this.x - pos.x) < (this.width / 2 + hw) &&
-        Math.abs(this.z - pos.z) < (this.length / 2 + hl)
+        Math.abs(this.mesh.position.z - pos.z) < (this.length / 2 + hl)
       );
     }
 
-    _avoid(pos, radius) {
-      const dx = pos.x - this.x;
-      const dz = pos.z - this.z;
-      if (Math.abs(dx) < radius * 3 && dz < 0 && dz > -15) {
-        const dir = dx > 0 ? -1 : 1;
-        this.vx += dir * 0.05;
-        this.targetX = this.x + dir * 3;
-        this.retargetTimer = Math.max(this.retargetTimer, 40);
-      }
-    }
-
-    _steerToItem(items, hw, lookAhead, force) {
-      if (!items) return false;
-      let bestDz = Infinity;
-      let bestDx = 0;
-      for (const item of items) {
-        if (!item.active) continue;
-        const dx = item.mesh.position.x - this.x;
-        const dz = item.mesh.position.z - this.z;
-        if (Math.abs(dx) < hw && dz < 0 && dz > -lookAhead && Math.abs(dz) < bestDz) {
-          bestDz = Math.abs(dz);
-          bestDx = dx;
-        }
-      }
-      if (bestDz !== Infinity) {
-        this.vx += bestDx * force;
-        return true;
-      }
-      return false;
-    }
-
     _clamp(x) {
-      return Math.max(-PLAYABLE_HALF, Math.min(PLAYABLE_HALF, x));
+      return Math.max(-PLAYABLE_HALF + 0.5, Math.min(PLAYABLE_HALF - 0.5, x));
     }
 
-    _sync() {
-      this.mesh.position.set(this.x, 0, this.z);
+    _sync(playerZ) {
+      this.mesh.position.set(this.x, 0, playerZ + this.relZ);
     }
   }
 
@@ -614,14 +646,8 @@ const RACE_DISTANCE = 350;
     }
 
     // ── AI Cars ─────────────────────────────────────────────────────────
-    const worldBaseSpeed = playerCarClass ? (currentSpeed / playerCarClass.modifier) : currentSpeed;
-    let aiBaseSpeed = worldBaseSpeed - playerBoostDelta;
-    if (window.currentGameLevel) {
-      aiBaseSpeed *= 1 + (window.currentGameLevel - 1) * 0.02;
-    }
-
     aiCars.forEach(ai => {
-      ai.update(playerCar.position.z, playerTravelDist, aiBaseSpeed, dangers, coins, arrows, cracks);
+      ai.update(playerCar.position.z, dangers, coins, arrows, cracks);
 
       // AI-player collision (push apart)
       if (ai.overlaps(playerCar.position, CAR_HALF_W, CAR_LENGTH / 2)) {
@@ -943,89 +969,95 @@ const RACE_DISTANCE = 350;
     gameLevelValue.textContent = Storage.get().gameLevel || 1;
   }
 
+  function setupRace() {
+    const state = Storage.get();
+    playerCarClass = getCarClass(state.selectedCar);
+
+    const level = state.gameLevel || 1;
+    window.currentGameLevel = level;
+    if (gameLevelValue) gameLevelValue.textContent = level;
+
+    // Reset game state
+    score = 0;
+    playerTravelDist = 0;
+    finishReached = false;
+    isInvulnerable = false;
+    magnetActive = false;
+    playerSlowDownFrames = 0;
+    playerBoostDelta = 0;
+    coinDoubleUsed = false;
+    if (gameScoreValue) gameScoreValue.innerText = '0';
+
+    baseSpeed = 0.15 * playerCarClass.modifier;
+    playerMoveSpeed = 0.12 * playerCarClass.modifier;
+
+    // Speed upgrade
+    const speedMult = 1 + (state.speedUpgradeLevel || 0) * 0.02;
+    baseSpeed *= speedMult;
+    playerMoveSpeed *= speedMult;
+
+    // Reset player position on start line
+    playerCar.position.set(0, 0, 0);
+
+    // Apply car skin & model
+    const carData = getCarById(state.selectedCar);
+    updateCarMesh(playerCar, carData.glb, getCarMaterial(state.selectedCar));
+
+    // Spawn level objects
+    spawnLevelObjects();
+
+    // Reset coins
+    coins.forEach((c, i) => {
+      c.active = true;
+      c.mesh.visible = true;
+      c.mesh.position.set(
+        (Math.random() - 0.5) * (ROAD_WIDTH - 2),
+        0.5,
+        -(15 + i * 12)
+      );
+    });
+
+    // Reset arrows
+    arrows.forEach((a, i) => {
+      a.active = true;
+      a.mesh.visible = true;
+      a.mesh.position.set(
+        (Math.random() - 0.5) * (ROAD_WIDTH - 2),
+        0.3,
+        -(50 + i * 60)
+      );
+    });
+
+    // Finish line
+    finishLineMesh.position.z = -RACE_DISTANCE * 0.02;
+    finishLineMesh.visible = false;
+
+    // AI Cars - Line up side-by-side with player on start line (relZ = 0)
+    aiCars.forEach(ai => scene.remove(ai.mesh));
+    aiCars.length = 0;
+
+    const aiModels = ['models/cars/police.glb', 'models/cars/race-future.glb'];
+    const aiCarColors = [getCarMaterial('car_race_red'), getCarMaterial('car_race_black')];
+
+    for (let i = 0; i < 2; i++) {
+      const aiMesh = createCarFromGLTF(aiModels[i], aiCarColors[i]);
+      scene.add(aiMesh);
+      const ai = new AiCar3D(aiMesh, i);
+      const startX = i === 0 ? -PLAYABLE_HALF * 0.6 : PLAYABLE_HALF * 0.6;
+      ai.place(startX, 0); // All cars start on the exact SAME line at relZ = 0
+      aiCars.push(ai);
+    }
+
+    chaseCamera.update(playerCar.position);
+    renderer.render(scene, chaseCamera.camera);
+  }
+
   // Start game
   welcomeStartBtn.addEventListener('click', () => {
     welcomeScreen.style.display = 'none';
+    setupRace();
 
     runCountdown(() => {
-      const state = Storage.get();
-      playerCarClass = getCarClass(state.selectedCar);
-
-      const level = state.gameLevel || 1;
-      window.currentGameLevel = level;
-      if (gameLevelValue) gameLevelValue.textContent = level;
-
-      // Reset game state
-      score = 0;
-      playerTravelDist = 0;
-      finishReached = false;
-      isInvulnerable = false;
-      magnetActive = false;
-      playerSlowDownFrames = 0;
-      playerBoostDelta = 0;
-      coinDoubleUsed = false;
-      if (gameScoreValue) gameScoreValue.innerText = '0';
-
-      baseSpeed = 0.15 * playerCarClass.modifier;
-      playerMoveSpeed = 0.12 * playerCarClass.modifier;
-
-      // Speed upgrade
-      const speedMult = 1 + (state.speedUpgradeLevel || 0) * 0.02;
-      baseSpeed *= speedMult;
-      playerMoveSpeed *= speedMult;
-
-      // Reset player position
-      playerCar.position.set(0, 0, 0);
-
-      // Apply car skin & model
-      const carData = getCarById(state.selectedCar);
-      updateCarMesh(playerCar, carData.glb, getCarMaterial(state.selectedCar));
-
-      // Spawn level objects
-      spawnLevelObjects();
-
-      // Reset coins
-      coins.forEach((c, i) => {
-        c.active = true;
-        c.mesh.visible = true;
-        c.mesh.position.set(
-          (Math.random() - 0.5) * (ROAD_WIDTH - 2),
-          0.5,
-          -(15 + i * 12)
-        );
-      });
-
-      // Reset arrows
-      arrows.forEach((a, i) => {
-        a.active = true;
-        a.mesh.visible = true;
-        a.mesh.position.set(
-          (Math.random() - 0.5) * (ROAD_WIDTH - 2),
-          0.3,
-          -(50 + i * 60)
-        );
-      });
-
-      // Finish line
-      finishLineMesh.position.z = -RACE_DISTANCE * 0.02;
-      finishLineMesh.visible = false;
-
-      // AI Cars
-      aiCars.forEach(ai => scene.remove(ai.mesh));
-      aiCars.length = 0;
-
-      const aiModels = ['models/cars/police.glb', 'models/cars/race-future.glb'];
-      const aiCarColors = [getCarMaterial('car_race_red'), getCarMaterial('car_race_black')];
-
-      for (let i = 0; i < 2; i++) {
-        const aiMesh = createCarFromGLTF(aiModels[i], aiCarColors[i]);
-        scene.add(aiMesh);
-        const ai = new AiCar3D(aiMesh, i);
-        const startX = i === 0 ? -PLAYABLE_HALF * 0.6 : PLAYABLE_HALF * 0.6;
-        ai.place(startX, playerCar.position.z, playerTravelDist);
-        aiCars.push(ai);
-      }
-
       resumeGame();
     });
   });

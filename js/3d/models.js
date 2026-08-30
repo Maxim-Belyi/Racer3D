@@ -302,7 +302,7 @@ export function createTree(variationIndex) {
   return group;
 }
 
-// ── Roadside Props (Survival Kit items) ────────────────────────────────────
+// ── Roadside Props (Survival Kit & Platformer items) ─────────────────────────
 
 const sidePropModels = [
   { url: 'models/env/barrel.glb', height: 1.2 },
@@ -315,6 +315,10 @@ const sidePropModels = [
   { url: 'models/env/signpost-single.glb', height: 2.0 },
   { url: 'models/env/tent-canvas.glb', height: 1.6 },
   { url: 'models/env/tree-log-small.glb', height: 0.8 },
+  { url: 'models/env/flowers.glb', height: 0.9 },
+  { url: 'models/env/flowers-tall.glb', height: 1.4 },
+  { url: 'models/env/mushrooms.glb', height: 0.8 },
+  { url: 'models/env/rocks.glb', height: 0.6 },
 ];
 
 export function createSideProp(index) {
@@ -419,25 +423,28 @@ export function createMagnet() {
   group.userData.fallbackMesh = torus;
   group.userData.innerMesh = torus;
 
-  loadAndApplyEnvModel(group, 'models/items/magnet.glb', 1.2);
+  loadAndApplyEnvModel(group, 'models/items/magnet.glb', 0.5);
 
   return group;
 }
-
-// ── Crack ───────────────────────────────────────────────────────────────────
 
 export function createCrack() {
   const group = new THREE.Group();
-  const geo = new THREE.PlaneGeometry(1.5, 1.5);
-  const mesh = new THREE.Mesh(geo, MAT.crackDark);
-  mesh.rotation.x = -Math.PI / 2;
-  mesh.position.y = 0.01; // just above road surface
-  group.add(mesh);
   group.userData.type = 'crack';
+
+  const geo = new THREE.DodecahedronGeometry(0.5, 0);
+  const mesh = new THREE.Mesh(geo, MAT.crackDark);
+  mesh.position.y = 0.25;
+  mesh.castShadow = true;
+  group.add(mesh);
+
+  group.userData.fallbackMesh = mesh;
+  group.userData.innerMesh = mesh;
+
+  loadAndApplyEnvModel(group, 'models/env/stones.glb', 0.1);
+
   return group;
 }
-
-// ── Finish / Start Line ────────────────────────────────────────────────────
 
 export function createCheckerLine(width) {
   const group = new THREE.Group();

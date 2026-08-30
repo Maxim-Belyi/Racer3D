@@ -3,7 +3,7 @@ import { createScene } from './3d/scene.js';
 import { ChaseCamera } from './3d/camera.js';
 import { createRoad, ROAD_WIDTH, ROAD_HALF } from './3d/road.js';
 import {
-  createCar, createCarFromGLTF, updateCarMesh, createTree, createCoin, createBoostArrow,
+  createCar, createCarFromGLTF, updateCarMesh, createTree, createSideProp, createCoin, createBoostArrow,
   createDanger, createMagnet, createCrack, createCheckerLine,
   setCarColor, getCarMaterial
 } from './3d/models.js';
@@ -255,6 +255,19 @@ const RACE_DISTANCE = 350;
     trees.push(tree);
   }
 
+  const sideProps = [];
+  const SIDE_PROP_COUNT = 14;
+  for (let i = 0; i < SIDE_PROP_COUNT; i++) {
+    const prop = createSideProp(i);
+    const side = i % 2 === 0 ? -1 : 1;
+    const xOff = TREE_SIDE_OFF + 0.8 + Math.random() * 3.0;
+    const z = -(i * 18) + Math.random() * 4;
+    prop.position.set(side * xOff, 0, z);
+    prop.rotation.y = Math.random() * Math.PI * 2;
+    scene.add(prop);
+    sideProps.push(prop);
+  }
+
   function makeItem(createFn, zPos) {
     const mesh = createFn();
     mesh.position.set(
@@ -443,9 +456,17 @@ const RACE_DISTANCE = 350;
   function recycleTrees(playerZ) {
     for (const tree of trees) {
       if (tree.position.z > playerZ + 30) {
-        // Move tree far ahead
         const minZ = Math.min(...trees.map(t => t.position.z));
         tree.position.z = minZ - TREE_SPACING / 2 - Math.random() * 3;
+      }
+    }
+    for (const prop of sideProps) {
+      if (prop.position.z > playerZ + 30) {
+        const minZ = Math.min(...sideProps.map(p => p.position.z));
+        prop.position.z = minZ - 18 - Math.random() * 5;
+        const side = Math.random() > 0.5 ? -1 : 1;
+        prop.position.x = side * (TREE_SIDE_OFF + 0.8 + Math.random() * 3.0);
+        prop.rotation.y = Math.random() * Math.PI * 2;
       }
     }
   }

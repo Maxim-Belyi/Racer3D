@@ -25,8 +25,11 @@
             position: fixed;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
+            width: 100vw !important;
+            height: 100vh !important;
+            max-width: 100vw !important;
+            max-height: 100vh !important;
+            margin: 0 !important;
             z-index: 10;
             pointer-events: none;
         }
@@ -42,7 +45,18 @@
             position: fixed;
         }
         .backdrop {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             z-index: 30;
+        }
+        .backdrop[style*="display: none"] {
+            display: none !important;
         }
         .shop-modal {
             z-index: 60 !important;
@@ -63,7 +77,7 @@
 
     <!-- UI Overlays (all kept as HTML) -->
     <div class="container">
-            <div class="backdrop shop-modal" data-js-shop-modal>
+            <div class="backdrop shop-modal" data-js-shop-modal style="display: none !important;">
                 <div class="shop-modal__wrapper">
                     <div class="shop-modal__header">
                         <h2 class="shop-modal__title">Магазин</h2>

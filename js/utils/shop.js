@@ -51,13 +51,23 @@ export function initShop() {
 
   let activeTab = 'garage';
 
+  const closeShop = () => {
+    shopModal.style.setProperty('display', 'none', 'important');
+  };
+
   openButtons.forEach(btn => btn.addEventListener('click', () => {
     renderShop();
-    shopModal.style.display = 'flex';
+    shopModal.style.setProperty('display', 'flex', 'important');
   }));
 
-  closeButton.addEventListener('click', () => {
-    shopModal.style.display = 'none';
+  if (closeButton) {
+    closeButton.addEventListener('click', closeShop);
+  }
+
+  shopModal.addEventListener('click', (e) => {
+    if (e.target === shopModal) {
+      closeShop();
+    }
   });
 
   tabButtons.forEach(btn => btn.addEventListener('click', (e) => {

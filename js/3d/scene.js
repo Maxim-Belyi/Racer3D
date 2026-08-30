@@ -16,8 +16,15 @@ export function createScene(container) {
 
   // Scene
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x87CEEB); // Sky blue
-  scene.fog = new THREE.Fog(0xc8e6ff, 80, 200);
+  scene.background = new THREE.Color(0x87CEEB); // Sky blue fallback
+  scene.fog = new THREE.Fog(0xbce0fd, 100, 250);
+
+  // Load panoramic skybox
+  const textureLoader = new THREE.TextureLoader();
+  textureLoader.load('textures/skybox/skybox-day.png', (texture) => {
+    texture.mapping = THREE.EquirectangularReflectionMapping;
+    scene.background = texture;
+  });
 
   // Lighting
   const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);

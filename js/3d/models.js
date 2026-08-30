@@ -200,6 +200,58 @@ function loadAndApplyModel(group, glbUrl) {
   );
 }
 
+function loadAndApplyEnvModel(group, glbUrl, targetHeight = 2.5, customMaterial = null) {
+  if (modelCache.has(glbUrl)) {
+    const cached = modelCache.get(glbUrl).clone();
+    if (group.userData.fallbackMesh) {
+      group.remove(group.userData.fallbackMesh);
+      group.userData.fallbackMesh = null;
+    }
+    group.add(cached);
+    return;
+  }
+
+  gltfLoader.load(
+    glbUrl,
+    (gltf) => {
+      const model = gltf.scene;
+      model.traverse((child) => {
+        if (child.isMesh) {
+          child.castShadow = true;
+          child.receiveShadow = true;
+          if (customMaterial) {
+            child.material = customMaterial;
+          }
+        }
+      });
+
+      const box = new THREE.Box3().setFromObject(model);
+      const size = new THREE.Vector3();
+      box.getSize(size);
+
+      const scale = targetHeight / (size.y || 1);
+      model.scale.set(scale, scale, scale);
+
+      const center = new THREE.Vector3();
+      box.getCenter(center);
+      model.position.set(-center.x * scale, -box.min.y * scale, -center.z * scale);
+
+      modelCache.set(glbUrl, model);
+
+      const instance = model.clone();
+      if (group.userData.fallbackMesh) {
+        group.remove(group.userData.fallbackMesh);
+        group.userData.fallbackMesh = null;
+      }
+      group.add(instance);
+    },
+    undefined,
+    (err) => {
+      console.warn(`[GLTFLoader] Failed env model ${glbUrl}:`, err);
+    }
+  );
+}
+
 // ── Trees ───────────────────────────────────────────────────────────────────
 
 const treeVariations = [
@@ -209,9 +261,17 @@ const treeVariations = [
   { trunkH: 1.8, crownType: 'dodeca', crownH: 2.2, crownR: 1.3, leaf: MAT.leafYellow },
 ];
 
+const glbTrees = [
+  'models/env/tree.glb',
+  'models/env/tree-autumn.glb',
+  'models/env/tree-tall.glb',
+  'models/env/tree-autumn-tall.glb',
+];
+
 export function createTree(variationIndex) {
   const v = treeVariations[variationIndex % treeVariations.length];
   const group = new THREE.Group();
+  group.userData.type = 'tree';
 
   // Trunk
   const trunkGeo = new THREE.CylinderGeometry(0.15, 0.2, v.trunkH, 6);
@@ -234,7 +294,36 @@ export function createTree(variationIndex) {
   crown.castShadow = true;
   group.add(crown);
 
-  group.userData.type = 'tree';
+  group.userData.fallbackMesh = trunk;
+
+  const glbUrl = glbTrees[variationIndex % glbTrees.length];
+  loadAndApplyEnvModel(group, glbUrl, 3.8);
+
+  return group;
+}
+
+// ── Roadside Props (Survival Kit items) ────────────────────────────────────
+
+const sidePropModels = [
+  { url: 'models/env/barrel.glb', height: 1.2 },
+  { url: 'models/env/box.glb', height: 1.0 },
+  { url: 'models/env/resource-planks.glb', height: 0.8 },
+  { url: 'models/env/rock-sand-a.glb', height: 1.5 },
+  { url: 'models/env/rock-sand-b.glb', height: 1.8 },
+  { url: 'models/env/rock-sand-c.glb', height: 1.3 },
+  { url: 'models/env/signpost.glb', height: 2.2 },
+  { url: 'models/env/signpost-single.glb', height: 2.0 },
+  { url: 'models/env/tent-canvas.glb', height: 1.6 },
+  { url: 'models/env/tree-log-small.glb', height: 0.8 },
+];
+
+export function createSideProp(index) {
+  const group = new THREE.Group();
+  group.userData.type = 'sideProp';
+
+  const prop = sidePropModels[index % sidePropModels.length];
+  loadAndApplyEnvModel(group, prop.url, prop.height);
+
   return group;
 }
 
@@ -242,20 +331,19 @@ export function createTree(variationIndex) {
 
 export function createCoin() {
   const group = new THREE.Group();
-  // Main disc (bigger, thicker)
+  group.userData.type = 'coin';
+
+  // Main disc fallback
   const geo = new THREE.CylinderGeometry(0.5, 0.5, 0.12, 16);
   const mesh = new THREE.Mesh(geo, MAT.coinGold);
   mesh.castShadow = true;
   group.add(mesh);
 
-  // Inner ring detail
-  const ringGeo = new THREE.TorusGeometry(0.35, 0.05, 8, 16);
-  const ring = new THREE.Mesh(ringGeo, MAT.coinGold);
-  ring.position.y = 0.07;
-  group.add(ring);
-
-  group.userData.type = 'coin';
+  group.userData.fallbackMesh = mesh;
   group.userData.innerMesh = mesh;
+
+  loadAndApplyEnvModel(group, 'models/items/coin.glb', 1.2);
+
   return group;
 }
 
@@ -263,44 +351,46 @@ export function createCoin() {
 
 export function createBoostArrow() {
   const group = new THREE.Group();
+  group.userData.type = 'boost';
 
-  // Arrow body (cone pointing up)
+  // Arrow body fallback
   const coneGeo = new THREE.ConeGeometry(0.4, 1.2, 4);
   const cone = new THREE.Mesh(coneGeo, MAT.boostGreen);
   cone.position.y = 0.8;
   cone.castShadow = true;
   group.add(cone);
 
-  // Base cylinder
-  const baseGeo = new THREE.CylinderGeometry(0.25, 0.25, 0.4, 8);
-  const base = new THREE.Mesh(baseGeo, MAT.boostGreen);
-  base.position.y = 0.2;
-  group.add(base);
+  group.userData.fallbackMesh = cone;
 
-  group.userData.type = 'boost';
+  loadAndApplyEnvModel(group, 'models/items/arrow.glb', 1.4);
+
   return group;
 }
 
-// ── Danger ──────────────────────────────────────────────────────────────────
+// ── Danger (Traffic Cone) ───────────────────────────────────────────────────
+
+const coneMaterial = new THREE.MeshStandardMaterial({
+  color: 0xff8800, // Bright vibrant traffic orange-yellow
+  roughness: 0.3,
+  metalness: 0.1,
+});
 
 export function createDanger() {
   const group = new THREE.Group();
-
-  // Main danger crystal (bigger)
-  const geo = new THREE.OctahedronGeometry(0.9, 0);
-  const mesh = new THREE.Mesh(geo, MAT.dangerRed);
-  mesh.position.y = 1.0;
-  mesh.castShadow = true;
-  group.add(mesh);
-
-  // Warning base
-  const baseGeo = new THREE.CylinderGeometry(0.7, 0.9, 0.2, 8);
-  const base = new THREE.Mesh(baseGeo, MAT.dangerRed);
-  base.position.y = 0.1;
-  group.add(base);
-
   group.userData.type = 'danger';
-  group.userData.innerMesh = mesh;
+
+  // Cone fallback
+  const coneGeo = new THREE.ConeGeometry(0.5, 1.2, 8);
+  const fallbackMesh = new THREE.Mesh(coneGeo, coneMaterial);
+  fallbackMesh.position.y = 0.6;
+  fallbackMesh.castShadow = true;
+  group.add(fallbackMesh);
+
+  group.userData.fallbackMesh = fallbackMesh;
+  group.userData.innerMesh = fallbackMesh;
+
+  loadAndApplyEnvModel(group, 'models/env/cone.glb', 1.4, coneMaterial);
+
   return group;
 }
 

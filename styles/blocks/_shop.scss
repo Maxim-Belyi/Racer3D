@@ -1,0 +1,329 @@
+@use '../helpers' as *;
+
+.shop-modal {
+    display: none; 
+    z-index: 40;
+
+    &__wrapper {
+        display: flex;
+        flex-direction: column;
+        width: 90%;
+        max-width: rem(800);
+        max-height: 90vh;
+        background: rgba(20, 20, 30, 0.85);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: rem(24);
+        box-shadow:
+            0 8px 32px rgba(0, 0, 0, 0.6),
+            inset 0 1px 0 rgba(255, 255, 255, 0.15);
+        overflow: hidden;
+
+        @include mobile {
+            width: calc(100% - 40px);
+            height: calc(100% - 40px);
+            max-height: none;
+            border-radius: rem(16);
+        }
+    }
+
+    &__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: rem(16) rem(24);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(0, 0, 0, 0.3);
+        gap: rem(24);
+        flex-wrap: wrap;
+        
+        @include mobile {
+            padding: rem(16);
+            gap: rem(12);
+        }
+    }
+
+    &__title {
+        font-size: rem(24);
+        color: #fff;
+        margin: 0;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    &__tabs {
+        display: flex;
+        gap: rem(8);
+        background: rgba(0, 0, 0, 0.3);
+        padding: rem(4);
+        border-radius: rem(12);
+    }
+
+    &__tab {
+        background: transparent;
+        border: none;
+        color: rgba(255, 255, 255, 0.6);
+        font-size: rem(16);
+        font-weight: 600;
+        padding: rem(8) rem(16);
+        border-radius: rem(8);
+        cursor: pointer;
+        transition: all 0.2s;
+
+        &:hover {
+            color: #fff;
+        }
+
+        &.active {
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+        }
+    }
+
+    &__coins {
+        font-size: rem(20);
+        color: gold;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: rem(8);
+        margin-left: auto;
+    }
+
+    &__close {
+        background: transparent;
+        border: none;
+        color: #fff;
+        font-size: rem(28);
+        line-height: 1;
+        cursor: pointer;
+        opacity: 0.7;
+        transition: opacity 0.2s;
+
+        &:hover {
+            opacity: 1;
+        }
+    }
+
+    &__content {
+        padding: rem(24);
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: rem(16);
+
+        &--grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: rem(16);
+            padding-bottom: rem(80);
+
+            @include mobile {
+                grid-template-columns: 1fr;
+            }
+        }
+    }
+}
+
+.shop-category-title {
+    color: #fff;
+    font-size: rem(20);
+    margin: rem(16) 0 rem(8);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: rem(4);
+    grid-column: 1 / -1;
+    gap:rem(18);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    .modifier {
+        font-size: rem(14);
+        color: #00b4db;
+        background: rgba(0, 180, 219, 0.2);
+        padding: rem(2) rem(8);
+        border-radius: rem(12);
+    }
+}
+
+.shop-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: rem(16);
+    padding: rem(12) rem(16);
+    transition: transform 0.2s, background 0.2s, border-color 0.2s;
+
+    &:hover {
+        background: rgba(255, 255, 255, 0.1);
+        transform: scale(1.02);
+    }
+
+    @include mobile {
+        flex-direction: column;
+        align-items: stretch;
+        gap: rem(16);
+    }
+
+    &--card {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        padding: rem(16);
+        gap: rem(12);
+
+        @include mobile {
+            align-items: center;
+        }
+
+        .shop-item__info {
+            flex-direction: column;
+            gap: rem(8);
+        }
+
+        .shop-item__action {
+            align-items: center;
+            width: 100%;
+        }
+
+        .shop-item__button {
+            width: 100%;
+        }
+
+        .shop-item__icon {
+            height: rem(100);
+            width: auto;
+            max-width: 100%;
+            object-fit: contain;
+        }
+    }
+
+    &--selected {
+        border-color: #43a047;
+        background: rgba(67, 160, 71, 0.1);
+    }
+
+    &__info {
+        display: flex;
+        align-items: center;
+        gap: rem(16);
+    }
+
+    &__icon {
+        width: rem(48);
+        height: rem(48);
+        object-fit: contain;
+        &--red { filter: hue-rotate(150deg) saturate(1.5); }
+        &--green { filter: hue-rotate(270deg) saturate(1.2); }
+        &--gold { filter: sepia(1) saturate(5) hue-rotate(-20deg); }
+    }
+
+    &__text {
+        display: flex;
+        flex-direction: column;
+        gap: rem(4);
+    }
+
+    &__name {
+        color: #fff;
+        font-size: rem(16);
+        font-weight: 600;
+    }
+
+    &__desc {
+        color: rgba(255, 255, 255, 0.6);
+        font-size: rem(12);
+    }
+
+    &__action {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: rem(8);
+
+        @include mobile {
+            align-items: stretch;
+            width: 100%;
+        }
+    }
+
+    &__price {
+        color: gold;
+        font-weight: 600;
+        font-size: rem(14);
+    }
+
+    &__button {
+        padding: rem(6) rem(16);
+        border-radius: rem(50);
+        font-size: rem(14);
+        font-weight: 600;
+        text-transform: uppercase;
+        color: #fff;
+        background: linear-gradient(135deg, #00b4db, #0083b0);
+        border: none;
+        cursor: pointer;
+        transition: transform 0.2s, background 0.2s;
+
+        &:hover:not(:disabled) {
+            transform: scale(1.05);
+        }
+
+        &:active {
+            transform: scale(0.95);
+        }
+
+        @include mobile {
+            width: 100%;
+            text-align: center;
+        }
+
+        &:disabled {
+            background: #555;
+            color: #aaa;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        &--selected {
+            background: linear-gradient(135deg, #43a047, #2e7d32);
+        }
+    }
+}
+
+// ── Upgrade progress indicator ────────────────────────────────────────────────
+.shop-item__upgrade-progress {
+    display: flex;
+    align-items: center;
+    gap: rem(8);
+    margin-top: rem(6);
+}
+
+.upgrade-dots {
+    display: flex;
+    gap: rem(4);
+}
+
+.upgrade-dot {
+    width: rem(10);
+    height: rem(10);
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    transition: background 0.3s, box-shadow 0.3s;
+
+    &.filled {
+        background: linear-gradient(135deg, #ffd700, #f39c12);
+        border-color: #ffd700;
+        box-shadow: 0 0 6px rgba(255, 215, 0, 0.6);
+    }
+}
+
+.upgrade-level-text {
+    font-size: rem(11);
+    color: rgba(255, 255, 255, 0.5);
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}

@@ -1,0 +1,23 @@
+@use './helpers' as *;
+:root {
+--color-white: #ffffff;
+--color-red: #b81414;
+--color-dark: #191A23;
+--color-grey-road: #817f85;
+--color-green:#6c7b2a;
+--color-orange: #F24E1E;
+--color-purple: #b91b72;
+
+--border: 1px solid var(--color-dark);
+
+--font-family-base: 'WinkySans', sans-serif;
+
+--container-width: 1920px;
+
+--border-radius: 20px;
+
+--border: #{rem(2)} solid var(--color-dark);
+
+--transition-duration: 0.5s;
+
+}

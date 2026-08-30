@@ -1,0 +1,29 @@
+@use '../helpers' as *;
+
+.game-level {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    position: absolute;
+    top: 65px;
+    left: 10px;
+    
+    background-color: var(--color-purple);
+    color: var(--color-white);
+    font-size: fluid(22, 16);
+    font-weight: 500;
+    border-radius: var(--border-radius);
+    z-index: 5;
+
+    &__title {
+        padding: rem(10);
+        padding-left: rem(20);
+    }
+
+    &__value {
+        padding: rem(10);
+        padding-right: rem(20);
+        min-width: 50px;
+        text-align: center;
+    }
+}

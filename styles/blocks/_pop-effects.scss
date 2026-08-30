@@ -1,0 +1,45 @@
+@use '../helpers' as *;
+
+@keyframes pop-collect {
+    0%   { transform: scale(1);   opacity: 1; }
+    40%  { transform: scale(1.5); opacity: 0.8; }
+    100% { transform: scale(0.2); opacity: 0; }
+}
+
+.pop-collect {
+    animation: pop-collect 0.4s ease-out forwards !important;
+    pointer-events: none;
+}
+
+@keyframes float-label {
+    0%   { transform: translateY(0);     opacity: 1; }
+    60%  { transform: translateY(-28px); opacity: 1; }
+    100% { transform: translateY(-48px); opacity: 0; }
+}
+
+.pop-label {
+    position: fixed;
+    font-family: var(--font-family-base);
+    font-weight: 700;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 20;
+    animation: float-label 0.75s ease-out forwards;
+
+    &--coin {
+        font-size: rem(22);
+        color: gold;
+        text-shadow:
+            0 0 6px rgba(255, 200, 0, 0.9),
+            0 1px 3px rgba(0, 0, 0, 0.5);
+    }
+
+    &--boost {
+        font-size: rem(20);
+        color: #50c8ff;
+        letter-spacing: 2px;
+        text-shadow:
+            0 0 8px rgba(80, 200, 255, 0.9),
+            0 1px 3px rgba(0, 0, 0, 0.5);
+    }
+}

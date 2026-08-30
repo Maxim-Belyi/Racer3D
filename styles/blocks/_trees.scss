@@ -1,0 +1,146 @@
+@use '../helpers' as *;
+
+.tree {
+    position: absolute;
+    z-index: 1;
+
+    &-1,
+    &-5 {
+        width: fluid(390, 90);
+    }
+
+    &-2,
+    &-4 {
+        width: fluid(360, 80);
+    }
+
+    &-3,
+    &-6 {
+        width: fluid(390, 95);
+    }
+
+    &-1 {
+        transform: translateY(-15vh);
+        left: 71vw;
+
+        @include mobile {
+            left: 75vw;
+        }
+    }
+
+    &-2 {
+        transform: translateY(-150vh);
+        left: 8vw;
+
+        @include mobile {
+            left: 4vw;
+        }
+
+        @include mobile-s {
+            left: 0.5vw;
+        }
+    }
+
+    &-3 {
+        transform: translateY(-45vh);
+        left: 7vw;
+
+        @include mobile {
+            left: 3vw;
+        }
+
+        @include mobile-s {
+            left: 0.5vw;
+        }
+    }
+
+    &-4 {
+        transform: translateY(-70vh);
+        left: 75vw;
+
+        @include mobile {
+            left: 80vw;
+        }
+    }
+
+    &-5 {
+        transform: translateY(-100vh);
+        left: 7vw;
+
+        @include mobile {
+            left: 3vw;
+        }
+
+        @include mobile-s {
+            left: 0.5vw;
+        }
+    }
+
+    &-6 {
+        transform: translateY(-145vh);
+        left: 72vw;
+
+        @include mobile {
+            left: 82vw;
+        }
+    }
+
+    &-7, &-8, &-12 {
+        width: fluid(300, 70); 
+        z-index: -1;
+    }
+
+    &-9, &-10, &-11 {
+        width: fluid(280, 50);
+        z-index: -1;
+    }
+
+    &-7 {
+        transform: translateY(-30vh);
+        width: fluid(280, 50);
+        z-index: -1;
+        left: 4vw;
+        @include mobile { left: 1vw; }
+    }
+
+    &-8 {
+        transform: translateY(-90vh);
+        z-index: -1;
+        width: fluid(280, 50);
+        left: 77vw;
+        @include mobile { left: 82vw; }
+    }
+
+    &-9 {
+        z-index: -1;
+        width: fluid(280, 50);
+        transform: translateY(-60vh);
+        left: 10vw;
+        @include mobile { left: 3vw; }
+    }
+
+    &-10 {
+        z-index: -1;
+        width: fluid(280, 50);
+        transform: translateY(-120vh);
+        left: 80vw;
+        @include mobile { left: 85vw; }
+    }
+
+    &-11 {
+        width: fluid(280, 50);
+        z-index: -1;
+        transform: translateY(-180vh);
+        left: 5vw;
+        @include mobile { left: 1vw; }
+    }
+
+    &-12 {
+        width: fluid(280, 50);
+        z-index: -1;
+        transform: translateY(-210vh);
+        left: 74vw;
+        @include mobile { left: 79vw; }
+    }
+
+}

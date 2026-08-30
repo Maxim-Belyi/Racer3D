@@ -1,0 +1,48 @@
+@use './helpers' as *;
+html {
+  overflow: hidden;
+}
+
+body {
+  background-color: var(--color-green);
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  font-family: var(--font-family-base);
+  height: 100vh;
+  width: 100vw;
+}
+
+.container {
+  max-width: var(--container-width);
+  margin-inline: auto;
+  max-height: 100vh;
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  border: 0 !important;
+  padding: 0 !important;
+  white-space: nowrap !important;
+  clip-path: inset(100%) !important;
+  clip: rect(0 0 0 0) !important;
+  overflow: hidden !important;
+}
+
+.button {
+  border: none;
+  background: transparent;
+
+  &:focus {
+    outline: none;
+  }
+
+  &:hover {
+    transform: scale(1.2);
+    transition: var(--transition-duration);
+  }
+
+}

@@ -1,0 +1,146 @@
+@use '../helpers' as *;
+
+@keyframes coin-glow {
+    0%   {
+        filter:
+            drop-shadow(0 0 4px gold)
+            brightness(1);
+    }
+    50%  {
+        filter:
+            drop-shadow(0 0 10px gold)
+            drop-shadow(0 0 22px rgba(255, 200, 0, 0.55))
+            brightness(1.35);
+    }
+    100% {
+        filter:
+            drop-shadow(0 0 4px gold)
+            brightness(1);
+    }
+}
+
+@keyframes coin-bob {
+    0%, 100% { transform: translateY(0)    scale(1); }
+    50%       { transform: translateY(-5px) scale(1.08); }
+}
+
+@keyframes arrow-glow {
+    0%   {
+        filter:
+            drop-shadow(0 0 3px rgba(80, 200, 255, 0.6))
+            brightness(1);
+    }
+    50%  {
+        filter:
+            drop-shadow(0 0 7px rgba(80, 200, 255, 0.9))
+            drop-shadow(0 0 14px rgba(80, 200, 255, 0.35))
+            brightness(1.15);
+    }
+    100% {
+        filter:
+            drop-shadow(0 0 3px rgba(80, 200, 255, 0.6))
+            brightness(1);
+    }
+}
+
+@keyframes arrow-float {
+    0%, 100% { transform: translateY(0); }
+    50%       { transform: translateY(-4px); }
+}
+
+@keyframes danger-pulse {
+    0%   {
+        filter:
+            drop-shadow(0 0 3px rgba(220, 50, 50, 0.5))
+            brightness(1);
+    }
+    50%  {
+        filter:
+            drop-shadow(0 0 8px rgba(220, 50, 50, 0.85))
+            drop-shadow(0 0 16px rgba(220, 50, 50, 0.3))
+            brightness(1.12);
+    }
+    100% {
+        filter:
+            drop-shadow(0 0 3px rgba(220, 50, 50, 0.5))
+            brightness(1);
+    }
+}
+
+@keyframes magnet-pulse {
+    0%   {
+        filter:
+            drop-shadow(0 0 4px rgba(255, 0, 150, 0.6))
+            brightness(1);
+    }
+    50%  {
+        filter:
+            drop-shadow(0 0 10px rgba(255, 0, 150, 0.9))
+            drop-shadow(0 0 20px rgba(200, 50, 255, 0.5))
+            brightness(1.2);
+    }
+    100% {
+        filter:
+            drop-shadow(0 0 4px rgba(255, 0, 150, 0.6))
+            brightness(1);
+    }
+}
+
+.signs {
+    position: absolute;
+
+    &__arrow {
+        width: fluid(110, 40);
+        height: auto;
+        transform: translate(250px, -195vh);
+    }
+
+    &__danger {
+        width: fluid(120, 60);
+        height: auto;
+        transform: translate(200px, -290vh);
+    }
+
+    &__coin {
+        width: fluid(70, 40);
+        transform: translate(200px, -110vh);
+    }
+
+    &__coin-alt {
+        width: fluid(70, 40);
+        transform: translate(300px, -130vh);
+    }
+
+    &__magnet {
+        width: fluid(90, 50);
+        transform: translate(250px, -150vh);
+    }
+
+    &__crack {
+        width: fluid(120, 60);
+        height: auto;
+        transform: translate(0, -10000px);
+        z-index: 1;
+    }
+}
+
+.signs__coin img,
+.signs__coin-alt img {
+    animation:
+        coin-glow 1.6s ease-in-out infinite,
+        coin-bob  1.6s ease-in-out infinite;
+}
+
+.signs__arrow img {
+    animation:
+        arrow-glow  2s ease-in-out infinite,
+        arrow-float 2s ease-in-out infinite;
+}
+
+.signs__danger img {
+    animation: danger-pulse 1.8s ease-in-out infinite;
+}
+
+.signs__magnet img {
+    animation: magnet-pulse 1.5s ease-in-out infinite;
+}

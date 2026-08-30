@@ -1,0 +1,110 @@
+@use '../helpers' as *;
+
+@keyframes screen-shake {
+    0%          { transform: translateX(0); }
+    10%         { transform: translateX(-9px); }
+    20%         { transform: translateX(9px); }
+    30%         { transform: translateX(-7px); }
+    40%         { transform: translateX(7px); }
+    50%         { transform: translateX(-5px); }
+    60%         { transform: translateX(5px); }
+    70%         { transform: translateX(-3px); }
+    80%         { transform: translateX(3px); }
+    90%         { transform: translateX(-1px); }
+    100%        { transform: translateX(0); }
+}
+
+body.screen-shake {
+    animation: screen-shake 0.55s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+.backdrop {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: rgba(10, 10, 20, 0.55);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    z-index: 10;
+}
+
+.end-game {
+    display: none;
+
+    &__wrapper {
+        display: flex;
+        gap: rem(24);
+        flex-direction: column;
+        align-items: center;
+        padding: rem(40) rem(52);
+
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        border-radius: rem(28);
+        box-shadow:
+            0 8px 32px rgba(0, 0, 0, 0.45),
+            inset 0 1px 0 rgba(255, 255, 255, 0.2);
+
+        @include mobile {
+            gap: rem(16);
+            padding: rem(24) rem(28);
+            text-align: center;
+        }
+    }
+
+    &__text {
+        display: flex;
+        align-items: center;
+        font-size: fluid(26, 20);
+        letter-spacing: 1px;
+        color: #fff;
+        text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5);
+
+        &::after,
+        &::before {
+            content: '\1f60e';
+            display: block;
+            padding-inline: rem(16);
+            animation: jump 0.3s ease infinite alternate;
+            animation-delay: 0.1s;
+
+            @include mobile {
+                padding-inline: rem(6);
+            }
+        }
+
+        @keyframes jump {
+            from { transform: translateY(0); }
+            to   { transform: translateY(-14px); }
+        }
+    }
+
+    &__button {
+        text-transform: uppercase;
+        font-size: rem(18);
+        font-weight: 500;
+        letter-spacing: 2.5px;
+        padding: rem(12) rem(36);
+        border-radius: rem(50);
+        color: #fff;
+        background: linear-gradient(135deg, #b91b72, #8b1357);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        box-shadow:
+            0 4px 15px rgba(185, 27, 114, 0.5),
+            inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+        &:hover {
+            transform: scale(1.06);
+            box-shadow:
+                0 6px 22px rgba(185, 27, 114, 0.7),
+                inset 0 1px 0 rgba(255, 255, 255, 0.25);
+        }
+
+        &:active {
+            transform: scale(0.97);
+        }
+    }
+}

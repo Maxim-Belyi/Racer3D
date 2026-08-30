@@ -1,0 +1,20 @@
+@use '../helpers' as *;
+
+.finish-line, .start-line {
+  position: absolute;
+  left: 0;
+  height: 125px;
+  display: none;
+  z-index: 8;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
+.finish-line {
+  background-image: url('/images/decorations/finish.png');
+}
+
+.start-line {
+  background-image: url('/images/decorations/start.png');
+}

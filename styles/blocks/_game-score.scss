@@ -1,0 +1,30 @@
+@use '../helpers' as *;
+
+.game-score {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    
+    background-color: var(--color-orange);
+    font-size: fluid(22, 16);
+    font-weight: 500;
+    border-radius: var(--border-radius);
+    z-index: 5;
+
+    &__title {
+        padding: rem(10);
+        padding-left: rem(20);
+
+        @include mobile {
+            padding: rem(5);
+            padding-left: rem(10);
+        }
+    }
+
+    &__value {
+        padding-right: rem(20);
+    }
+}

@@ -1,0 +1,41 @@
+@use '../helpers' as *;
+
+.road {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-inline: auto;
+    position: relative;
+    overflow: hidden;
+    width: fluid(900, 250);
+    height: 110vh;
+    background:
+        linear-gradient(
+            to bottom,
+            #6b6975 0%,
+            #817f85 40%,
+            #9e9ca8 70%,
+            #817f85 100%
+        );
+    border-left: var(--border);
+    border-right: var(--border);
+}
+
+.road-marking {
+    position: absolute;
+    top: -80px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 6px;
+    height: calc(100% + 80px);
+    background: repeating-linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0.9) 0px,
+        rgba(255, 255, 255, 0.9) 40px,
+        transparent 40px,
+        transparent 80px
+    );
+    border-radius: 3px;
+    z-index: 0;
+    pointer-events: none;
+}

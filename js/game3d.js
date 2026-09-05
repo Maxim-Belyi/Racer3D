@@ -63,6 +63,7 @@ const RACE_DISTANCE = 1000;
   let isInvulnerable = false;
   let playerCarClass = null;
   let playerTravelDist = 0;
+  let raceFinalStandings = null;
 
   const moveState = { left: false, right: false, up: false, down: false };
 
@@ -87,7 +88,7 @@ const RACE_DISTANCE = 1000;
       this.travelDist = 0;
 
       // Unique independent bot speeds (units/frame) - increased by 25%
-      const speeds = [0.200, 0.178, 0.194, 0.172];
+      const speeds = [0.270, 0.255, 0.235, 0.210];
       this.baseSpeed = speeds[index % speeds.length];
       this.currentSpeed = this.baseSpeed;
 
@@ -108,22 +109,51 @@ const RACE_DISTANCE = 1000;
       this._sync();
     }
 
-    update(dangers, coins, arrows, cracks) {
+    update(playerDist, playerSpeed, playerX, dangers, coins, arrows, cracks) {
       const FRICTION = 0.88;
-      const STEER_FORCE = 0.025;
-      const MAX_VX = 0.18;
+      const STEER_FORCE = 0.035;
+      const MAX_VX = 0.22;
 
       // Calculate independent bot speed
       let targetSpeed = this.baseSpeed;
-      if (this.stunFrames > 0) {
-        this.stunFrames--;
-        targetSpeed = this.baseSpeed * 0.2; // Stunned by obstacle / cone (slow down to 20%)
-        this.mesh.rotation.z = Math.sin(this.stunFrames * 0.6) * 0.2;
-      } else if (this.boosting) {
-        targetSpeed = this.baseSpeed * 1.55; // Turbo boost arrow!
+
+      // Dynamic Aggressive Catch-Up (Rubberbanding) logic
+      if (typeof playerDist === 'number' && !isNaN(playerDist)) {
+        const distBehind = playerDist - this.travelDist;
+
+        if (distBehind > 14) {
+          // Bot fell off-screen behind player -> snap to 6m behind player (camera view) and blast forward!
+          this.travelDist = playerDist - 6;
+          // Spawn in open side lane for an immediate overtake
+          const side = (playerX > 0 ? -1.8 : 1.8);
+          this.x = side;
+          this.vx = 0;
+          this.stunFrames = 0;
+          targetSpeed = Math.max(this.baseSpeed * 1.8, (playerSpeed || 0.2) * 1.4);
+        } else if (distBehind > 0.5) {
+          // Bot is behind player -> GUARANTEE target speed is faster than player's speed to overtake!
+          targetSpeed = Math.max(this.baseSpeed * 1.6, (playerSpeed || 0.2) * 1.28);
+          
+          // Steer towards open lane next to player for overtake
+          if (Math.abs(this.x - (playerX || 0)) < 1.2 && this.stunFrames <= 0) {
+            const evadeDir = (this.x > (playerX || 0)) ? 1 : -1;
+            this.targetX = this._clamp((playerX || 0) + evadeDir * 2.2);
+          }
+        } else if (distBehind < -25) {
+          // Bot is far ahead (> 25m) -> ease up slightly so player can fight back!
+          targetSpeed = this.baseSpeed * 0.85;
+        }
       }
 
-      this.currentSpeed += (targetSpeed - this.currentSpeed) * 0.1;
+      if (this.stunFrames > 0) {
+        this.stunFrames--;
+        targetSpeed = this.baseSpeed * 0.25;
+        this.mesh.rotation.z = Math.sin(this.stunFrames * 0.6) * 0.2;
+      } else if (this.boosting) {
+        targetSpeed = Math.max(this.baseSpeed * 1.7, (playerSpeed || 0.2) * 1.45);
+      }
+
+      this.currentSpeed += (targetSpeed - this.currentSpeed) * 0.12;
       this.travelDist += this.currentSpeed; // Move bot forward along track!
 
       const botZ = -this.travelDist; // 3D world position along -Z
@@ -629,7 +659,7 @@ const RACE_DISTANCE = 1000;
 
     // ── AI Cars ─────────────────────────────────────────────────────────
     aiCars.forEach(ai => {
-      ai.update(dangers, coins, arrows, cracks);
+      ai.update(playerTravelDist, currentSpeed, playerCar.position.x, dangers, coins, arrows, cracks);
 
       // AI-player collision (push apart)
       if (ai.overlaps(playerCar.position, CAR_HALF_W, CAR_LENGTH / 2)) {
@@ -691,6 +721,13 @@ const RACE_DISTANCE = 1000;
 
     if (!finishReached && leadingDist >= RACE_DISTANCE) {
       finishReached = true;
+      raceFinalStandings = [
+        { label: 'Вы', dist: playerTravelDist },
+        ...aiCars.map((ai, i) => ({
+          label: `Бот ${i + 1}`,
+          dist: ai.travelDist
+        })),
+      ].sort((a, b) => b.dist - a.dist);
     }
 
     if (finishReached) {
@@ -791,15 +828,15 @@ const RACE_DISTANCE = 1000;
 
     Storage.addCoins(score);
 
-    const places = [
-      { label: 'You', dist: playerTravelDist },
+    const places = raceFinalStandings || [
+      { label: 'Вы', dist: playerTravelDist },
       ...aiCars.map((ai, i) => ({
         label: `Бот ${i + 1}`,
         dist: ai.travelDist
       })),
     ].sort((a, b) => b.dist - a.dist);
 
-    if (places[0].label === 'You') {
+    if (places[0].label === 'Вы' || places[0].label === 'You') {
       const state = Storage.get();
       state.gameLevel = (state.gameLevel || 1) + 1;
       Storage.save(state);
@@ -960,8 +997,23 @@ const RACE_DISTANCE = 1000;
     }
   }
 
-  if (gameLevelValue) {
-    gameLevelValue.textContent = Storage.get().gameLevel || 1;
+  function highlightMobileControls() {
+    const leftWrapper = document.querySelector('.button-controls-wrapper__left');
+    const rightWrapper = document.querySelector('.button-controls-wrapper__right');
+    if (leftWrapper) {
+      leftWrapper.classList.remove('controls-pulse-green');
+      void leftWrapper.offsetWidth;
+      leftWrapper.classList.add('controls-pulse-green');
+    }
+    if (rightWrapper) {
+      rightWrapper.classList.remove('controls-pulse-green');
+      void rightWrapper.offsetWidth;
+      rightWrapper.classList.add('controls-pulse-green');
+    }
+    setTimeout(() => {
+      if (leftWrapper) leftWrapper.classList.remove('controls-pulse-green');
+      if (rightWrapper) rightWrapper.classList.remove('controls-pulse-green');
+    }, 3500);
   }
 
   function setupRace() {
@@ -978,6 +1030,7 @@ const RACE_DISTANCE = 1000;
     finishReached = false;
     isInvulnerable = false;
     magnetActive = false;
+    raceFinalStandings = null;
     playerSlowDownFrames = 0;
     playerBoostDelta = 0;
     coinDoubleUsed = false;
@@ -988,6 +1041,9 @@ const RACE_DISTANCE = 1000;
 
     // Pick a random skybox for each new race start!
     setRandomSkybox(scene);
+
+    // Pulse green on mobile control buttons at race start
+    highlightMobileControls();
 
     // Speed upgrade
     const speedMult = 1 + (state.speedUpgradeLevel || 0) * 0.02;

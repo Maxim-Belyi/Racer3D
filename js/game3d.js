@@ -54,6 +54,8 @@ const RACE_DISTANCE = 1000;
   let magnetActive = false;
   let magnetTimeout = null;
   let coinDoubleUsed = false;
+  let dangerBoostPhase = null; // null | 'transparent' | 'blinking'
+  let dangerBlinkTimer = 0;
 
   let baseSpeed = 0.19;      
   let playerMoveSpeed = 0.15;  
@@ -414,6 +416,20 @@ const RACE_DISTANCE = 1000;
     }
   }
 
+  function setDangerOpacity(meshGroup, opacity) {
+    meshGroup.traverse(child => {
+      if (child.isMesh && child.material) {
+        // Clone material on first use to avoid affecting shared materials
+        if (!child.material.userData._opacityCloned) {
+          child.material = child.material.clone();
+          child.material.userData._opacityCloned = true;
+        }
+        child.material.transparent = opacity < 1.0;
+        child.material.opacity = opacity;
+      }
+    });
+  }
+
   function playerOverlaps(objPos, objHalfW, objHalfL) {
     const px = playerCar.position.x;
     const pz = playerCar.position.z;
@@ -493,6 +509,17 @@ const RACE_DISTANCE = 1000;
         if (d.mesh.userData.innerMesh) {
           d.mesh.userData.innerMesh.rotation.set(0, 0, 0);
         }
+      }
+      // Blinking animation during pre-reappear phase
+      if (dangerBoostPhase === 'blinking') {
+        // Oscillate opacity: fast blink getting more opaque over time
+        const progress = 1 - (dangerBlinkTimer / 180); // 0→1 over 3 seconds
+        const blinkSpeed = 8 + progress * 12; // faster blink as time progresses
+        const minOpacity = 0.15 + progress * 0.35; // 0.15→0.5
+        const maxOpacity = 0.4 + progress * 0.5;   // 0.4→0.9
+        const blink = (Math.sin(frameCount * 0.1 * blinkSpeed) + 1) / 2;
+        const opacity = minOpacity + blink * (maxOpacity - minOpacity);
+        setDangerOpacity(d.mesh, opacity);
       }
     });
 
@@ -615,8 +642,13 @@ const RACE_DISTANCE = 1000;
         a.active = false;
         a.mesh.visible = false;
 
-        // Make dangers temporarily invisible
-        dangers.forEach(d => { d.active = false; d.mesh.visible = false; });
+        // Make dangers semi-transparent and inactive (no collision)
+        dangerBoostPhase = 'transparent';
+        dangers.forEach(d => {
+          d.active = false;
+          d.mesh.visible = true;
+          setDangerOpacity(d.mesh, 0.2);
+        });
 
         if (Sounds.isPlaying) Sounds.play('arrow');
 
@@ -630,9 +662,10 @@ const RACE_DISTANCE = 1000;
           playerMoveSpeed -= 0.05;
           playerBoostDelta = 0;
           playerCar.userData.boosting = false;
-          setTimeout(() => {
-            dangers.forEach(d => { d.active = true; d.mesh.visible = true; });
-          }, 1000);
+
+          // Start 3-second blinking phase before full reappear
+          dangerBoostPhase = 'blinking';
+          dangerBlinkTimer = 180; // ~3 seconds (60fps-normalized)
         }, 2000);
       }
     });
@@ -653,6 +686,20 @@ const RACE_DISTANCE = 1000;
         magnetItem.active = false;
         magnetItem.mesh.visible = false;
         if (Sounds.isPlaying) Sounds.play('coin');
+      }
+    }
+
+    // ── Danger blink countdown ──────────────────────────────────────────
+    if (dangerBoostPhase === 'blinking') {
+      dangerBlinkTimer -= dt;
+      if (dangerBlinkTimer <= 0) {
+        // Fully reappear: solid and active
+        dangerBoostPhase = null;
+        dangers.forEach(d => {
+          d.active = true;
+          d.mesh.visible = true;
+          setDangerOpacity(d.mesh, 1.0);
+        });
       }
     }
 
@@ -1070,6 +1117,8 @@ const RACE_DISTANCE = 1000;
     lastTime = 0;
     playerSlowDownFrames = 0;
     playerBoostDelta = 0;
+    dangerBoostPhase = null;
+    dangerBlinkTimer = 0;
     coinDoubleUsed = false;
     if (gameScoreValue) gameScoreValue.innerText = '0';
 

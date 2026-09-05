@@ -26,16 +26,13 @@
     &-wrapper {
       &__left {
         display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: rem(12);
         position: absolute;
-        bottom: rem(70);
-        left: rem(45);
+        bottom: rem(100);
+        left: rem(25);
         z-index: 2;
 
         @include mobile-s {
-          left: rem(5);
+          left: rem(10);
         }
 
         @media (pointer: fine) {
@@ -45,17 +42,13 @@
 
       &__right {
         display: flex;
-        flex-direction: row;
-        align-items: center;
-        gap: rem(16);
         position: absolute;
-        bottom: rem(75);
-        right: rem(35);
+        bottom: rem(100);
+        right: rem(25);
         z-index: 2;
 
         @include mobile-s {
-          right: rem(5);
-          bottom: rem(75);
+          right: rem(10);
         }
 
         @media (pointer: fine) {
@@ -65,9 +58,7 @@
     }
 
     &__left,
-    &__right,
-    &__down,
-    &__top {
+    &__right {
       width: fluid(75, 50);
       height: fluid(75, 50);
       display: flex;
@@ -86,20 +77,12 @@
       }
     }
 
-    &__top {
-      transform: rotate(0deg);
-    }
-
     &__left {
-      transform: rotate(-90deg);
-    }
-
-    &__down {
-      transform: rotate(180deg);
+      rotate: -90deg;
     }
 
     &__right {
-      transform: rotate(90deg);
+      rotate: 90deg;
     }
   }
 }

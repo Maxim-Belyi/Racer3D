@@ -85,17 +85,17 @@ const RACE_DISTANCE = 1000;
   const aiCars = [];
 
   class AiCar3D {
-    constructor(mesh, index, gameLevel) {
+    constructor(mesh, index, gameLevel, playerBaseSpeed) {
       this.mesh = mesh;
       this.index = index;
       this.x = 0;
       this.vx = 0;
       this.travelDist = 0;
 
-      // Bot speeds scale with game level (+3% per level)
-      const baseSpeeds = [0.200, 0.190, 0.180, 0.170];
-      const levelBonus = 1 + ((gameLevel || 1) - 1) * 0.03;
-      this.baseSpeed = baseSpeeds[index % baseSpeeds.length] * levelBonus;
+      // Bot speeds relative to player, scaling with level (+2.5% per level)
+      const speedFactors = [0.97, 0.93]; // slightly slower than player at level 1
+      const levelBonus = 1 + ((gameLevel || 1) - 1) * 0.025;
+      this.baseSpeed = (playerBaseSpeed || 0.1875) * speedFactors[index % speedFactors.length] * levelBonus;
       this.currentSpeed = this.baseSpeed;
 
       this.stunFrames = 0;
@@ -147,8 +147,21 @@ const RACE_DISTANCE = 1000;
           this.stunFrames = 0;
           targetSpeed = Math.max(this.baseSpeed * 1.8, (playerSpeed || 0.2) * 1.4);
         } else if (distBehind > 0.5) {
-          // Bot is behind player -> GUARANTEE target speed is faster than player's speed to overtake!
-          targetSpeed = Math.max(this.baseSpeed * 1.6, (playerSpeed || 0.2) * 1.28);
+          // Reduce rubberbanding near finish for fair final stretch
+          const raceProgress = this.travelDist / RACE_DISTANCE;
+          if (raceProgress > 0.9) {
+            // Last 10%: cap speed to player speed (no overtake from behind via rubberbanding)
+            targetSpeed = Math.max(this.baseSpeed, playerSpeed || 0.2);
+          } else if (raceProgress > 0.8) {
+            // 80-90%: dampened catch-up
+            const dampening = Math.max(0, 1 - (raceProgress - 0.8) / 0.1);
+            const catchupMult = 1 + 0.6 * dampening;
+            const speedMult = 1 + 0.28 * dampening;
+            targetSpeed = Math.max(this.baseSpeed * catchupMult, (playerSpeed || 0.2) * speedMult);
+          } else {
+            // Normal catch-up
+            targetSpeed = Math.max(this.baseSpeed * 1.6, (playerSpeed || 0.2) * 1.28);
+          }
           
           // Steer towards open lane next to player for overtake
           if (Math.abs(this.x - (playerX || 0)) < 1.2 && this.stunFrames <= 0) {
@@ -771,24 +784,37 @@ const RACE_DISTANCE = 1000;
     if (aiCars.length >= 2) resolveAiAi(aiCars[0], aiCars[1]);
 
     // ── Finish Line ─────────────────────────────────────────────────────
-    finishLineMesh.position.z = -RACE_DISTANCE;
+    // Position the finish line relative to the player so it stays within camera range (far=300)
+    const distToFinish = RACE_DISTANCE - playerTravelDist;
+    if (distToFinish > 0) {
+      finishLineMesh.position.z = playerCar.position.z - Math.min(distToFinish, 200);
+    } else {
+      finishLineMesh.position.z = playerCar.position.z; // player crossed it
+    }
 
-    // Finish line appears when player is within 20m of race distance
-    if (playerTravelDist >= RACE_DISTANCE - 20) {
+    // Finish line appears when player is within 25m of race distance
+    if (playerTravelDist >= RACE_DISTANCE - 25) {
       finishLineMesh.visible = true;
     } else {
       finishLineMesh.visible = false;
+    }
+
+    // Debug: log positions every ~2 seconds near finish
+    if (playerTravelDist > RACE_DISTANCE * 0.9 && frameCount % 120 === 0) {
+      console.log(`[RACE] Player: ${playerTravelDist.toFixed(1)} | ${aiCars.map((ai, i) => `Bot${i+1}: ${ai.travelDist.toFixed(1)}${ai.finished ? '(F)' : ''}`).join(' | ')}`);
     }
 
     // Track individual finishes
     if (!playerFinished && playerTravelDist >= RACE_DISTANCE) {
       playerFinished = true;
       finishOrder.push({ label: 'Вы', dist: playerTravelDist });
+      console.log(`[FINISH] Вы финишировали! Позиция: ${finishOrder.length}, dist: ${playerTravelDist.toFixed(1)}`);
     }
     aiCars.forEach((ai, i) => {
       if (!ai.finished && ai.travelDist >= RACE_DISTANCE) {
         ai.finished = true;
         finishOrder.push({ label: `Бот ${i + 1}`, dist: ai.travelDist });
+        console.log(`[FINISH] Бот ${i + 1} финишировал! Позиция: ${finishOrder.length}, dist: ${ai.travelDist.toFixed(1)}`);
       }
     });
 
@@ -915,6 +941,8 @@ const RACE_DISTANCE = 1000;
         dist: ai.travelDist
       })),
     ].sort((a, b) => b.dist - a.dist);
+
+    console.log('[FINISH] Final standings:', places.map((p, i) => `${i+1}. ${p.label} (${p.dist.toFixed(1)})`).join(', '));
 
     if (places[0].label === 'Вы' || places[0].label === 'You') {
       const state = Storage.get();
@@ -1169,7 +1197,7 @@ const RACE_DISTANCE = 1000;
     });
 
     // Finish line
-    finishLineMesh.position.z = -RACE_DISTANCE;
+    finishLineMesh.position.z = -200; // offscreen until race nears end
     finishLineMesh.visible = false;
 
     // AI Cars - Line up side-by-side with player on start line (relZ = 0)
@@ -1182,7 +1210,7 @@ const RACE_DISTANCE = 1000;
     for (let i = 0; i < 2; i++) {
       const aiMesh = createCarFromGLTF(aiModels[i], aiCarColors[i]);
       scene.add(aiMesh);
-      const ai = new AiCar3D(aiMesh, i, level);
+      const ai = new AiCar3D(aiMesh, i, level, baseSpeed);
       const startX = i === 0 ? -PLAYABLE_HALF * 0.6 : PLAYABLE_HALF * 0.6;
       ai.place(startX, 0); // All cars start on the exact SAME line at relZ = 0
       aiCars.push(ai);

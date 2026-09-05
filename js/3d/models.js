@@ -318,7 +318,7 @@ const sidePropModels = [
   { url: 'models/platformer/flowers.glb', height: 0.9 },
   { url: 'models/platformer/flowers-tall.glb', height: 1.4 },
   { url: 'models/platformer/mushrooms.glb', height: 0.8 },
-  { url: 'models/platformer/rocks.glb', height: 0.6 },
+  { url: 'models/platformer/rocks.glb', height: 0.6 }
 ];
 
 export function createSideProp(index) {
@@ -334,7 +334,7 @@ export function createSideProp(index) {
 // ── Coin ────────────────────────────────────────────────────────────────────
 
 const brightGoldMaterial = new THREE.MeshStandardMaterial({
-  color: 0xffea00, // Bright arcade cartoon gold
+  color: 0xffea00,
   emissive: 0xffa700,
   emissiveIntensity: 0.45,
   roughness: 0.2,

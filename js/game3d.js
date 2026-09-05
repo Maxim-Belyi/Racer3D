@@ -19,7 +19,7 @@ const CAR_WIDTH     = 1.6;
 const CAR_LENGTH    = 3.2;
 const CAR_HALF_W    = CAR_WIDTH / 2;
 const PLAYABLE_HALF = ROAD_HALF - CAR_HALF_W - 0.2; 
-const TREE_COUNT    = 24;   
+const TREE_COUNT    = 60;   
 const TREE_SPACING  = 12;   
 const TREE_SIDE_OFF = ROAD_HALF + 1.5;
 
@@ -317,7 +317,8 @@ const RACE_DISTANCE = 1000;
   for (let i = 0; i < TREE_COUNT; i++) {
     const tree = createTree(i);
     const side = i % 2 === 0 ? -1 : 1;
-    const xOff = TREE_SIDE_OFF + Math.random() * 2;
+    // Spread trees up to 25 units away
+    const xOff = TREE_SIDE_OFF + Math.random() * 25.0;
     const z = -(i * TREE_SPACING / 2) + Math.random() * 3;
     tree.position.set(side * xOff, 0, z);
     const s = 0.8 + Math.random() * 0.6;
@@ -327,12 +328,13 @@ const RACE_DISTANCE = 1000;
   }
 
   const sideProps = [];
-  const SIDE_PROP_COUNT = 14;
+  const SIDE_PROP_COUNT = 80;
   for (let i = 0; i < SIDE_PROP_COUNT; i++) {
     const prop = createSideProp(i);
     const side = i % 2 === 0 ? -1 : 1;
-    const xOff = TREE_SIDE_OFF + 0.8 + Math.random() * 3.0;
-    const z = -(i * 18) + Math.random() * 4;
+    // Spread props up to 30 units away
+    const xOff = TREE_SIDE_OFF + 0.5 + Math.random() * 30.0;
+    const z = -(i * 4) + Math.random() * 4;
     prop.position.set(side * xOff, 0, z);
     prop.rotation.y = Math.random() * Math.PI * 2;
     scene.add(prop);
@@ -554,14 +556,16 @@ const RACE_DISTANCE = 1000;
       if (tree.position.z > playerZ + 30) {
         const minZ = Math.min(...trees.map(t => t.position.z));
         tree.position.z = minZ - TREE_SPACING / 2 - Math.random() * 3;
+        const side = Math.random() > 0.5 ? -1 : 1;
+        tree.position.x = side * (TREE_SIDE_OFF + Math.random() * 25.0);
       }
     }
     for (const prop of sideProps) {
       if (prop.position.z > playerZ + 30) {
         const minZ = Math.min(...sideProps.map(p => p.position.z));
-        prop.position.z = minZ - 18 - Math.random() * 5;
+        prop.position.z = minZ - 4 - Math.random() * 5;
         const side = Math.random() > 0.5 ? -1 : 1;
-        prop.position.x = side * (TREE_SIDE_OFF + 0.8 + Math.random() * 3.0);
+        prop.position.x = side * (TREE_SIDE_OFF + 0.5 + Math.random() * 30.0);
         prop.rotation.y = Math.random() * Math.PI * 2;
       }
     }

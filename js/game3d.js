@@ -63,7 +63,10 @@ const RACE_DISTANCE = 1000;
   let isInvulnerable = false;
   let playerCarClass = null;
   let playerTravelDist = 0;
-  let raceFinalStandings = null;
+  let lastTime = 0;
+  let finishOrder = [];
+  let playerFinished = false;
+  let finishCountdown = -1;
 
   const moveState = { left: false, right: false, up: false, down: false };
 
@@ -80,21 +83,23 @@ const RACE_DISTANCE = 1000;
   const aiCars = [];
 
   class AiCar3D {
-    constructor(mesh, index) {
+    constructor(mesh, index, gameLevel) {
       this.mesh = mesh;
       this.index = index;
       this.x = 0;
       this.vx = 0;
       this.travelDist = 0;
 
-      // Unique independent bot speeds (units/frame) - increased by 25%
-      const speeds = [0.270, 0.255, 0.235, 0.210];
-      this.baseSpeed = speeds[index % speeds.length];
+      // Bot speeds scale with game level (+3% per level)
+      const baseSpeeds = [0.200, 0.190, 0.180, 0.170];
+      const levelBonus = 1 + ((gameLevel || 1) - 1) * 0.03;
+      this.baseSpeed = baseSpeeds[index % baseSpeeds.length] * levelBonus;
       this.currentSpeed = this.baseSpeed;
 
       this.stunFrames = 0;
       this.boosting = false;
       this.boostTimer = null;
+      this.finished = false;
       this.targetX = index % 2 === 0 ? -1.8 : 1.8;
       this.retargetTimer = 0;
       this.width = CAR_WIDTH;
@@ -106,10 +111,19 @@ const RACE_DISTANCE = 1000;
       this.travelDist = startDist; // 0 at race start
       this.vx = 0;
       this.targetX = this.x;
+      this.finished = false;
       this._sync();
     }
 
-    update(playerDist, playerSpeed, playerX, dangers, coins, arrows, cracks) {
+    update(playerDist, playerSpeed, playerX, dangers, coins, arrows, cracks, dt) {
+      // If finished, just decelerate and coast
+      if (this.finished) {
+        this.currentSpeed *= Math.pow(0.95, dt);
+        this.travelDist += this.currentSpeed * dt;
+        this._sync();
+        return;
+      }
+
       const FRICTION = 0.88;
       const STEER_FORCE = 0.035;
       const MAX_VX = 0.22;
@@ -121,7 +135,7 @@ const RACE_DISTANCE = 1000;
       if (typeof playerDist === 'number' && !isNaN(playerDist)) {
         const distBehind = playerDist - this.travelDist;
 
-        if (distBehind > 14) {
+        if (distBehind > 14 && playerDist < RACE_DISTANCE - 20) {
           // Bot fell off-screen behind player -> snap to 6m behind player (camera view) and blast forward!
           this.travelDist = playerDist - 6;
           // Spawn in open side lane for an immediate overtake
@@ -146,15 +160,15 @@ const RACE_DISTANCE = 1000;
       }
 
       if (this.stunFrames > 0) {
-        this.stunFrames--;
+        this.stunFrames -= dt;
         targetSpeed = this.baseSpeed * 0.25;
         this.mesh.rotation.z = Math.sin(this.stunFrames * 0.6) * 0.2;
       } else if (this.boosting) {
         targetSpeed = Math.max(this.baseSpeed * 1.7, (playerSpeed || 0.2) * 1.45);
       }
 
-      this.currentSpeed += (targetSpeed - this.currentSpeed) * 0.12;
-      this.travelDist += this.currentSpeed; // Move bot forward along track!
+      this.currentSpeed += (targetSpeed - this.currentSpeed) * 0.12 * dt;
+      this.travelDist += this.currentSpeed * dt; // Move bot forward along track!
 
       const botZ = -this.travelDist; // 3D world position along -Z
 
@@ -226,7 +240,7 @@ const RACE_DISTANCE = 1000;
 
           // 3. WANDERING (Low Priority)
           if (!itemFound) {
-            if (--this.retargetTimer <= 0) {
+            if ((this.retargetTimer -= dt) <= 0) {
               this.retargetTimer = 80 + Math.random() * 120;
               this.targetX = (Math.random() - 0.5) * (PLAYABLE_HALF * 1.6);
             }
@@ -236,9 +250,9 @@ const RACE_DISTANCE = 1000;
 
         // Apply smooth steering
         const dx = desiredX - this.x;
-        this.vx += dx * STEER_FORCE;
-        this.vx = Math.max(-MAX_VX, Math.min(MAX_VX, this.vx * FRICTION));
-        this.x = this._clamp(this.x + this.vx);
+        this.vx += dx * STEER_FORCE * dt;
+        this.vx = Math.max(-MAX_VX, Math.min(MAX_VX, this.vx * Math.pow(FRICTION, dt)));
+        this.x = this._clamp(this.x + this.vx * dt);
 
         this.mesh.rotation.z = -this.vx * 2.5;
       }
@@ -523,25 +537,30 @@ const RACE_DISTANCE = 1000;
     }
   }
 
-  function gameLoop() {
+  function gameLoop(timestamp) {
     if (isPause) return;
+
+    // Delta-time: normalize to 60fps (dt=1.0 at 60fps, dt=2.0 at 30fps)
+    if (!lastTime) lastTime = timestamp;
+    const dt = Math.min((timestamp - lastTime) / 16.667, 3);
+    lastTime = timestamp;
 
     const speedMod = playerSlowDownFrames > 0 ? 0.5 : 1.0;
     const currentSpeed = baseSpeed * speedMod;
 
-    if (playerSlowDownFrames > 0) playerSlowDownFrames--;
+    if (playerSlowDownFrames > 0) playerSlowDownFrames -= dt;
 
     const lateralSpeed = playerMoveSpeed * speedMod;
 
-    if (moveState.left)  playerCar.position.x -= lateralSpeed;
-    if (moveState.right) playerCar.position.x += lateralSpeed;
-    if (moveState.up)    playerCar.position.z -= lateralSpeed * 0.3;
-    if (moveState.down)  playerCar.position.z += lateralSpeed * 0.3;
+    if (moveState.left)  playerCar.position.x -= lateralSpeed * dt;
+    if (moveState.right) playerCar.position.x += lateralSpeed * dt;
+    if (moveState.up)    playerCar.position.z -= lateralSpeed * 0.3 * dt;
+    if (moveState.down)  playerCar.position.z += lateralSpeed * 0.3 * dt;
 
     playerCar.position.x = Math.max(-PLAYABLE_HALF, Math.min(PLAYABLE_HALF, playerCar.position.x));
 
-    playerCar.position.z -= currentSpeed;
-    playerTravelDist += currentSpeed;
+    playerCar.position.z -= currentSpeed * dt;
+    playerTravelDist += currentSpeed * dt;
 
     let targetLean = 0;
     if (moveState.left)  targetLean = 0.15;
@@ -659,7 +678,7 @@ const RACE_DISTANCE = 1000;
 
     // ── AI Cars ─────────────────────────────────────────────────────────
     aiCars.forEach(ai => {
-      ai.update(playerTravelDist, currentSpeed, playerCar.position.x, dangers, coins, arrows, cracks);
+      ai.update(playerTravelDist, currentSpeed, playerCar.position.x, dangers, coins, arrows, cracks, dt);
 
       // AI-player collision (push apart)
       if (ai.overlaps(playerCar.position, CAR_HALF_W, CAR_LENGTH / 2)) {
@@ -705,35 +724,49 @@ const RACE_DISTANCE = 1000;
     if (aiCars.length >= 2) resolveAiAi(aiCars[0], aiCars[1]);
 
     // ── Finish Line ─────────────────────────────────────────────────────
-    finishLineMesh.position.z = playerCar.position.z - (RACE_DISTANCE - playerTravelDist) * 0.02;
+    finishLineMesh.position.z = -RACE_DISTANCE;
 
-    // Finish line appears at 990 meters (10m before 1000m finish)
-    const leadingDist = Math.max(
-      playerTravelDist,
-      ...aiCars.map(ai => ai.travelDist)
-    );
-
-    if (leadingDist >= RACE_DISTANCE - 10) {
+    // Finish line appears when player is within 20m of race distance
+    if (playerTravelDist >= RACE_DISTANCE - 20) {
       finishLineMesh.visible = true;
     } else {
       finishLineMesh.visible = false;
     }
 
-    if (!finishReached && leadingDist >= RACE_DISTANCE) {
+    // Track individual finishes
+    if (!playerFinished && playerTravelDist >= RACE_DISTANCE) {
+      playerFinished = true;
+      finishOrder.push({ label: 'Вы', dist: playerTravelDist });
+    }
+    aiCars.forEach((ai, i) => {
+      if (!ai.finished && ai.travelDist >= RACE_DISTANCE) {
+        ai.finished = true;
+        finishOrder.push({ label: `Бот ${i + 1}`, dist: ai.travelDist });
+      }
+    });
+
+    // Start countdown when first racer finishes
+    if (finishOrder.length > 0 && finishCountdown < 0) {
       finishReached = true;
-      raceFinalStandings = [
-        { label: 'Вы', dist: playerTravelDist },
-        ...aiCars.map((ai, i) => ({
-          label: `Бот ${i + 1}`,
-          dist: ai.travelDist
-        })),
-      ].sort((a, b) => b.dist - a.dist);
+      finishCountdown = 300; // ~5 seconds (in 60fps-normalized frames)
     }
 
     if (finishReached) {
-      baseSpeed *= 0.97;
-      playerMoveSpeed *= 0.97;
-      if (baseSpeed < 0.002) {
+      finishCountdown -= dt;
+      baseSpeed *= Math.pow(0.97, dt);
+      playerMoveSpeed *= Math.pow(0.97, dt);
+
+      // End race when all finished or countdown expired
+      if (finishOrder.length >= aiCars.length + 1 || finishCountdown <= 0 || baseSpeed < 0.002) {
+        // Add any remaining racers who didn't cross the line
+        if (!playerFinished) {
+          finishOrder.push({ label: 'Вы', dist: playerTravelDist });
+        }
+        aiCars.forEach((ai, i) => {
+          if (!ai.finished) {
+            finishOrder.push({ label: `Бот ${i + 1}`, dist: ai.travelDist });
+          }
+        });
         finishRace();
         return;
       }
@@ -781,7 +814,7 @@ const RACE_DISTANCE = 1000;
   // ── AI-AI collision ───────────────────────────────────────────────────
 
   function resolveAiAi(a, b) {
-    if (Math.abs(a.z - b.z) > CAR_LENGTH * 1.5) return;
+    if (Math.abs(a.travelDist - b.travelDist) > CAR_LENGTH * 1.5) return;
     const dx = a.x - b.x;
     if (Math.abs(dx) < CAR_WIDTH * 1.2) {
       const dir = dx > 0 ? 1 : -1;
@@ -828,7 +861,7 @@ const RACE_DISTANCE = 1000;
 
     Storage.addCoins(score);
 
-    const places = raceFinalStandings || [
+    const places = finishOrder.length > 0 ? finishOrder : [
       { label: 'Вы', dist: playerTravelDist },
       ...aiCars.map((ai, i) => ({
         label: `Бот ${i + 1}`,
@@ -920,6 +953,7 @@ const RACE_DISTANCE = 1000;
       return;
     }
     isPause = false;
+    lastTime = 0; // Reset to avoid huge dt after pause
     animationId = requestAnimationFrame(gameLoop);
     Sounds.resumeAll();
     YandexAds.gameplayStart();
@@ -1030,7 +1064,10 @@ const RACE_DISTANCE = 1000;
     finishReached = false;
     isInvulnerable = false;
     magnetActive = false;
-    raceFinalStandings = null;
+    finishOrder = [];
+    playerFinished = false;
+    finishCountdown = -1;
+    lastTime = 0;
     playerSlowDownFrames = 0;
     playerBoostDelta = 0;
     coinDoubleUsed = false;
@@ -1083,7 +1120,7 @@ const RACE_DISTANCE = 1000;
     });
 
     // Finish line
-    finishLineMesh.position.z = -RACE_DISTANCE * 0.02;
+    finishLineMesh.position.z = -RACE_DISTANCE;
     finishLineMesh.visible = false;
 
     // AI Cars - Line up side-by-side with player on start line (relZ = 0)
@@ -1096,7 +1133,7 @@ const RACE_DISTANCE = 1000;
     for (let i = 0; i < 2; i++) {
       const aiMesh = createCarFromGLTF(aiModels[i], aiCarColors[i]);
       scene.add(aiMesh);
-      const ai = new AiCar3D(aiMesh, i);
+      const ai = new AiCar3D(aiMesh, i, level);
       const startX = i === 0 ? -PLAYABLE_HALF * 0.6 : PLAYABLE_HALF * 0.6;
       ai.place(startX, 0); // All cars start on the exact SAME line at relZ = 0
       aiCars.push(ai);

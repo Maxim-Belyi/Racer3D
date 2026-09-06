@@ -29,7 +29,7 @@ const DANGER_BASE   = 1;
 const CRACK_BASE    = 4;
 const ARROW_COUNT   = 2;
 
-const RACE_DISTANCE = 1000;  
+const RACE_DISTANCE = 800;  
 
 
 (async function () {
@@ -57,8 +57,8 @@ const RACE_DISTANCE = 1000;
   let dangerBoostPhase = null; // null | 'transparent' | 'blinking'
   let dangerBlinkTimer = 0;
 
-  let baseSpeed = 0.19;      
-  let playerMoveSpeed = 0.15;  
+  let baseSpeed = 0.594;      
+  let playerMoveSpeed = 0.198;  
   let playerBoostDelta = 0;
   let playerSlowDownFrames = 0;
   let finishReached = false;
@@ -82,20 +82,45 @@ const RACE_DISTANCE = 1000;
     updateCarMesh(playerCar, carData.glb, getCarMaterial(carData.id));
   });
 
+  // ── Bot car tier progression ────────────────────────────────────────────────
+  // Bot1 upgrades: lvl 3 -> sport, lvl 9 -> supercar, lvl 15 -> premium
+  // Bot2 upgrades: lvl 6 -> sport, lvl 12 -> supercar, lvl 18 -> premium
+  const BOT_BASE_SPEED = 0.2475;
+  const BOT_TIER_MODIFIERS = [1.0, 1.1, 1.3, 1.5]; // default, porshe, sport, premium
+  const BOT_UPGRADE_LEVELS = [
+    [3, 9, 15],  // Bot1 upgrades at these levels
+    [6, 12, 18], // Bot2 upgrades at these levels
+  ];
+
+  function getBotClassModifier(botIndex, level) {
+    const upgrades = BOT_UPGRADE_LEVELS[botIndex] || BOT_UPGRADE_LEVELS[0];
+    let tier = 0;
+    for (const lvl of upgrades) {
+      if (level >= lvl) tier++;
+      else break;
+    }
+    return BOT_TIER_MODIFIERS[Math.min(tier, BOT_TIER_MODIFIERS.length - 1)];
+  }
+
+  function getBotLevelSpeedBonus(level) {
+    // +2% every 5 levels (level 5 -> x1.02, level 10 -> x1.04, etc.)
+    return 1 + Math.floor(((level || 1) - 1) / 5) * 0.02;
+  }
+
   const aiCars = [];
 
   class AiCar3D {
-    constructor(mesh, index, gameLevel, playerBaseSpeed) {
+    constructor(mesh, index, gameLevel) {
       this.mesh = mesh;
       this.index = index;
       this.x = 0;
       this.vx = 0;
       this.travelDist = 0;
 
-      // Bot speeds relative to player, scaling with level (+2.5% per level)
-      const speedFactors = [0.97, 0.93]; // slightly slower than player at level 1
-      const levelBonus = 1 + ((gameLevel || 1) - 1) * 0.025;
-      this.baseSpeed = (playerBaseSpeed || 0.1875) * speedFactors[index % speedFactors.length] * levelBonus;
+      const botMod = getBotClassModifier(index, gameLevel || 1);
+      const levelBonus = getBotLevelSpeedBonus(gameLevel || 1);
+      this.botMod = botMod;
+      this.baseSpeed = BOT_BASE_SPEED * botMod * levelBonus;
       this.currentSpeed = this.baseSpeed;
 
       this.stunFrames = 0;
@@ -253,12 +278,15 @@ const RACE_DISTANCE = 1000;
             }
           }
 
-          // 3. WANDERING (Low Priority)
+          // 3. WANDERING (Low Priority) - gentle drift, mostly straight
           if (!itemFound) {
             if ((this.retargetTimer -= dt) <= 0) {
-              this.retargetTimer = 80 + Math.random() * 120;
-              this.targetX = (Math.random() - 0.5) * (PLAYABLE_HALF * 1.6);
+              this.retargetTimer = 150 + Math.random() * 200;
+              // Stay mostly in middle third of road, slight random drift
+              this.targetX = (Math.random() - 0.5) * (PLAYABLE_HALF * 0.8);
             }
+            // Soft center bias: gradually pull target toward lane center
+            this.targetX *= 0.995;
             desiredX = this.targetX;
           }
         }
@@ -317,7 +345,6 @@ const RACE_DISTANCE = 1000;
   for (let i = 0; i < TREE_COUNT; i++) {
     const tree = createTree(i);
     const side = i % 2 === 0 ? -1 : 1;
-    // Spread trees up to 25 units away
     const xOff = TREE_SIDE_OFF + Math.random() * 25.0;
     const z = -(i * TREE_SPACING / 2) + Math.random() * 3;
     tree.position.set(side * xOff, 0, z);
@@ -476,7 +503,7 @@ const RACE_DISTANCE = 1000;
 
     if (Sounds.isPlaying) Sounds.play('coin');
 
-    if (score % 3 === 0 && baseSpeed < 0.5) {
+    if (score % 3 === 0 && baseSpeed < 0.66) {
       baseSpeed += 0.008;
       playerMoveSpeed += 0.005;
     }
@@ -525,13 +552,11 @@ const RACE_DISTANCE = 1000;
           d.mesh.userData.innerMesh.rotation.set(0, 0, 0);
         }
       }
-      // Blinking animation during pre-reappear phase
       if (dangerBoostPhase === 'blinking') {
-        // Oscillate opacity: fast blink getting more opaque over time
-        const progress = 1 - (dangerBlinkTimer / 180); // 0→1 over 3 seconds
-        const blinkSpeed = 8 + progress * 12; // faster blink as time progresses
-        const minOpacity = 0.15 + progress * 0.35; // 0.15→0.5
-        const maxOpacity = 0.4 + progress * 0.5;   // 0.4→0.9
+        const progress = 1 - (dangerBlinkTimer / 180);
+        const blinkSpeed = 8 + progress * 12; 
+        const minOpacity = 0.15 + progress * 0.35;
+        const maxOpacity = 0.4 + progress * 0.5;
         const blink = (Math.sin(frameCount * 0.1 * blinkSpeed) + 1) / 2;
         const opacity = minOpacity + blink * (maxOpacity - minOpacity);
         setDangerOpacity(d.mesh, opacity);
@@ -583,8 +608,6 @@ const RACE_DISTANCE = 1000;
 
   function gameLoop(timestamp) {
     if (isPause) return;
-
-    // Delta-time: normalize to 60fps (dt=1.0 at 60fps, dt=2.0 at 30fps)
     if (!lastTime) lastTime = timestamp;
     const dt = Math.min((timestamp - lastTime) / 16.667, 3);
     lastTime = timestamp;
@@ -1154,8 +1177,8 @@ const RACE_DISTANCE = 1000;
     coinDoubleUsed = false;
     if (gameScoreValue) gameScoreValue.innerText = '0';
 
-    baseSpeed = 0.1875 * playerCarClass.modifier;
-    playerMoveSpeed = 0.15 * playerCarClass.modifier;
+    baseSpeed = 0.2475 * playerCarClass.modifier;
+    playerMoveSpeed = 0.198 * playerCarClass.modifier;
 
     // Pick a random skybox for each new race start!
     setRandomSkybox(scene);
@@ -1214,11 +1237,12 @@ const RACE_DISTANCE = 1000;
     for (let i = 0; i < 2; i++) {
       const aiMesh = createCarFromGLTF(aiModels[i], aiCarColors[i]);
       scene.add(aiMesh);
-      const ai = new AiCar3D(aiMesh, i, level, baseSpeed);
+      const ai = new AiCar3D(aiMesh, i, level);
       const startX = i === 0 ? -PLAYABLE_HALF * 0.6 : PLAYABLE_HALF * 0.6;
       ai.place(startX, 0); // All cars start on the exact SAME line at relZ = 0
       aiCars.push(ai);
     }
+    console.log(`[SPEED] level=${level} | player=mod:${playerCarClass.modifier}, speed:${baseSpeed.toFixed(3)} | Bot1=mod:${aiCars[0]?.botMod}, speed:${aiCars[0]?.baseSpeed.toFixed(3)} | Bot2=mod:${aiCars[1]?.botMod}, speed:${aiCars[1]?.baseSpeed.toFixed(3)}`);
 
     chaseCamera.update(playerCar.position);
     renderer.render(scene, chaseCamera.camera);

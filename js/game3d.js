@@ -85,7 +85,7 @@ const RACE_DISTANCE = 800;
   // ── Bot car tier progression ────────────────────────────────────────────────
   // Bot1 upgrades: lvl 3 -> sport, lvl 9 -> supercar, lvl 15 -> premium
   // Bot2 upgrades: lvl 6 -> sport, lvl 12 -> supercar, lvl 18 -> premium
-  const BOT_BASE_SPEED = 0.2475;
+  const BOT_BASE_SPEED = 0.2846; // 0.2475 * 1.15 (+15%)
   const BOT_TIER_MODIFIERS = [1.0, 1.1, 1.3, 1.5]; // default, porshe, sport, premium
   const BOT_UPGRADE_LEVELS = [
     [3, 9, 15],  // Bot1 upgrades at these levels
@@ -1231,15 +1231,26 @@ const RACE_DISTANCE = 800;
     aiCars.forEach(ai => scene.remove(ai.mesh));
     aiCars.length = 0;
 
-    const aiModels = ['models/cars/police.glb', 'models/cars/race-future.glb'];
+    // Bot car models change based on their tier (car class)
+    // Tier 0=default, 1=sport, 2=supercar, 3=premium
+    const botModelsByTier = [
+      ['models/cars/sedan.glb',         'models/cars/taxi.glb'],          // Tier 0: default
+      ['models/cars/police.glb',        'models/cars/hatchback-sports.glb'], // Tier 1: sport
+      ['models/cars/race.glb',          'models/cars/sedan-sports.glb'],  // Tier 2: supercar
+      ['models/cars/race-future.glb',   'models/cars/suv-luxury.glb'],    // Tier 3: premium
+    ];
     const aiCarColors = [getCarMaterial('car_race_red'), getCarMaterial('car_race_black')];
 
     for (let i = 0; i < 2; i++) {
-      const aiMesh = createCarFromGLTF(aiModels[i], aiCarColors[i]);
+      const mod = getBotClassModifier(i, level);
+      const tierIndex = [1.0, 1.1, 1.3, 1.5].indexOf(mod);
+      const modelTier = tierIndex >= 0 ? tierIndex : 0;
+      const aiModel = botModelsByTier[modelTier][i];
+      const aiMesh = createCarFromGLTF(aiModel, aiCarColors[i]);
       scene.add(aiMesh);
       const ai = new AiCar3D(aiMesh, i, level);
       const startX = i === 0 ? -PLAYABLE_HALF * 0.6 : PLAYABLE_HALF * 0.6;
-      ai.place(startX, 0); // All cars start on the exact SAME line at relZ = 0
+      ai.place(startX, 0);
       aiCars.push(ai);
     }
     console.log(`[SPEED] level=${level} | player=mod:${playerCarClass.modifier}, speed:${baseSpeed.toFixed(3)} | Bot1=mod:${aiCars[0]?.botMod}, speed:${aiCars[0]?.baseSpeed.toFixed(3)} | Bot2=mod:${aiCars[1]?.botMod}, speed:${aiCars[1]?.baseSpeed.toFixed(3)}`);

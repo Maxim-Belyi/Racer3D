@@ -57,8 +57,12 @@ const RACE_DISTANCE = 800;
   let dangerBoostPhase = null; // null | 'transparent' | 'blinking'
   let dangerBlinkTimer = 0;
 
-  let baseSpeed = 0.594;      
-  let playerMoveSpeed = 0.198;  
+  // Mobile players get +15% speed to compensate for touch controls
+  const IS_MOBILE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || navigator.maxTouchPoints > 1;
+  const MOBILE_SPEED_BOOST = IS_MOBILE ? 1.15 : 1.0;
+
+  let baseSpeed = 0.594 * MOBILE_SPEED_BOOST;      
+  let playerMoveSpeed = 0.198 * MOBILE_SPEED_BOOST;  
   let playerBoostDelta = 0;
   let playerSlowDownFrames = 0;
   let finishReached = false;
@@ -1177,8 +1181,8 @@ const RACE_DISTANCE = 800;
     coinDoubleUsed = false;
     if (gameScoreValue) gameScoreValue.innerText = '0';
 
-    baseSpeed = 0.2475 * playerCarClass.modifier;
-    playerMoveSpeed = 0.198 * playerCarClass.modifier;
+    baseSpeed = 0.2475 * playerCarClass.modifier * MOBILE_SPEED_BOOST;
+    playerMoveSpeed = 0.198 * playerCarClass.modifier * MOBILE_SPEED_BOOST;
 
     // Pick a random skybox for each new race start!
     setRandomSkybox(scene);

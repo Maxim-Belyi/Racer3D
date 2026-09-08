@@ -28,9 +28,8 @@ export const YandexAds = {
       ysdk = await YaGames.init();
       sdkReady = true;
       console.info('[YandexAds] SDK ready. Lang:', ysdk.environment?.i18n?.lang);
-      
+
       try {
-        // scopes: false requests the player object without showing an auth dialog
         ysdkPlayer = await ysdk.getPlayer({ scopes: false });
         console.info('[YandexAds] Player API initialized');
       } catch (pe) {
@@ -53,34 +52,42 @@ export const YandexAds = {
 
   /**
    * Notify Yandex platform that the game has loaded and the player can start.
-   * Call this when the welcome/start screen is fully shown (§1.19.2).
    */
   notifyReady() {
     if (!this.isAvailable) return;
-    ysdk.features.LoadingAPI?.ready();
+    try {
+      ysdk.features.LoadingAPI?.ready();
+    } catch (e) {
+      console.warn('[YandexAds] LoadingAPI ready failed:', e);
+    }
   },
 
   /**
-   * Notify platform that active gameplay has started (§1.19.3).
-   * Call when: level starts, game resumes, ad closes.
+   * Notify platform that active gameplay has started.
    */
   gameplayStart() {
     if (!this.isAvailable) return;
-    ysdk.features.GameplayAPI?.start();
+    try {
+      ysdk.features.GameplayAPI?.start();
+    } catch (e) {
+      console.warn('[YandexAds] GameplayAPI start failed:', e);
+    }
   },
 
   /**
-   * Notify platform that gameplay has stopped (§1.19.3).
-   * Call when: level ends, menu opens, ad is about to show, tab loses focus.
+   * Notify platform that gameplay has stopped.
    */
   gameplayStop() {
     if (!this.isAvailable) return;
-    ysdk.features.GameplayAPI?.stop();
+    try {
+      ysdk.features.GameplayAPI?.stop();
+    } catch (e) {
+      console.warn('[YandexAds] GameplayAPI stop failed:', e);
+    }
   },
 
   /**
    * Get the current user language from the SDK environment.
-   * Returns null when SDK is not available (local dev).
    * @returns {string|null} e.g. "ru", "en"
    */
   getLang() {
@@ -90,16 +97,12 @@ export const YandexAds = {
 
   /**
    * Show rewarded video ad (§4.5).
-   * Automatically dispatches 'ya-ad-open' and 'ya-ad-close' DOM events
-   * so game.js can pause/resume audio and animation.
+   * Yandex Games SDK v2 requires `callbacks: { onOpen, onRewarded, onClose, onError }`.
    *
-   * showRewardedVideo signature from docs:
-   *   { onOpen?, onRewarded?, onClose?(wasShown), onError?(error) }
-   *
-   * @param {object} callbacks
-   * @param {Function} [callbacks.onRewarded]
-   * @param {Function} [callbacks.onClose]  
-   * @param {Function} [callbacks.onError]
+   * @param {object} options
+   * @param {Function} [options.onRewarded]
+   * @param {Function} [options.onClose]
+   * @param {Function} [options.onError]
    */
   showRewardedAd({ onRewarded, onClose, onError } = {}) {
     if (!this.isAvailable) {
@@ -114,23 +117,82 @@ export const YandexAds = {
     document.dispatchEvent(new Event('ya-ad-open'));
     this.gameplayStop();
 
-    ysdk.adv.showRewardedVideo({
-      onOpen() {
-      },
-      onRewarded() {
-        onRewarded?.();
-      },
-      onClose(wasShown) {
-        onClose?.(wasShown);
-        document.dispatchEvent(new Event('ya-ad-close'));
-        YandexAds.gameplayStart();
-      },
-      onError(error) {
-        console.warn('[YandexAds] Rewarded ad error:', error);
-        onError?.(error);
-        document.dispatchEvent(new Event('ya-ad-close'));
-        YandexAds.gameplayStart();
-      },
-    });
+    let rewardedGranted = false;
+
+    try {
+      ysdk.adv.showRewardedVideo({
+        callbacks: {
+          onOpen() {
+            console.info('[YandexAds] Rewarded ad opened.');
+          },
+          onRewarded() {
+            console.info('[YandexAds] Rewarded ad reward granted.');
+            rewardedGranted = true;
+            onRewarded?.();
+          },
+          onClose(wasShown) {
+            console.info('[YandexAds] Rewarded ad closed. wasShown:', wasShown);
+            onClose?.(rewardedGranted || wasShown);
+            document.dispatchEvent(new Event('ya-ad-close'));
+            YandexAds.gameplayStart();
+          },
+          onError(error) {
+            console.warn('[YandexAds] Rewarded ad error:', error);
+            onError?.(error);
+            onClose?.(false);
+            document.dispatchEvent(new Event('ya-ad-close'));
+            YandexAds.gameplayStart();
+          },
+        },
+      });
+    } catch (err) {
+      console.warn('[YandexAds] showRewardedVideo call threw exception:', err);
+      onError?.(err);
+      onClose?.(false);
+      document.dispatchEvent(new Event('ya-ad-close'));
+      YandexAds.gameplayStart();
+    }
+  },
+
+  /**
+   * Show interstitial fullscreen ad (§4.4).
+   * @param {object} options
+   * @param {Function} [options.onClose]
+   * @param {Function} [options.onError]
+   */
+  showFullscreenAd({ onClose, onError } = {}) {
+    if (!this.isAvailable) {
+      console.info('[YandexAds] Simulating interstitial ad (SDK not available).');
+      onClose?.(true);
+      return;
+    }
+
+    document.dispatchEvent(new Event('ya-ad-open'));
+    this.gameplayStop();
+
+    try {
+      ysdk.adv.showFullscreenAdv({
+        callbacks: {
+          onClose(wasShown) {
+            onClose?.(wasShown);
+            document.dispatchEvent(new Event('ya-ad-close'));
+            YandexAds.gameplayStart();
+          },
+          onError(error) {
+            console.warn('[YandexAds] Fullscreen ad error:', error);
+            onError?.(error);
+            onClose?.(false);
+            document.dispatchEvent(new Event('ya-ad-close'));
+            YandexAds.gameplayStart();
+          },
+        },
+      });
+    } catch (err) {
+      console.warn('[YandexAds] showFullscreenAdv call threw exception:', err);
+      onError?.(err);
+      onClose?.(false);
+      document.dispatchEvent(new Event('ya-ad-close'));
+      YandexAds.gameplayStart();
+    }
   },
 };
